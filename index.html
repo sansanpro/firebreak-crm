@@ -192,7 +192,7 @@ function api(path, opts){
 
 var SELECT = "id,score,score_rationale,funnel_path,endpoint_type,validation,validation_note,"+
   "call_opener,corrected_note,batch_label,discovery_query,"+
-  "business:businesses(id,slug,name,domain,industry,region,fb_page_url),"+
+  "business:businesses(id,slug,name,domain,industry,region,fb_page_url,phone,email,contact_source),"+
   "ad:ads(ad_library_id,permalink,running_since,ads_running,endpoint_type,destination_url),"+
   "issues(id,description,evidence,evidence_class,sort_order),"+
   "suggested_fixes(id,fix,sort_order),"+
@@ -282,6 +282,29 @@ function addBooking(o){
     data.bookings.unshift(rows[0]); toast("logged"); render();
   }).catch(function(e){ toast("failed: "+e.message,3200); });
 }
+function saveBusiness(a, o){
+  toast("saving…",0);
+  api("businesses?id=eq."+a.business.id,{method:"PATCH", body:o})
+    .then(function(){ Object.keys(o).forEach(function(k){ a.business[k]=o[k]; });
+                      toast("business saved"); render(); })
+    .catch(function(e){ toast("failed: "+e.message,3400); });
+}
+function deleteLead(a){
+  var nm=a.business.name;
+  if(!window.confirm("Delete \""+nm+"\" and its entire audit?\n\nThis removes the business, ad, audit, "
+     +(a.issues||[]).length+" issues, all fixes, open questions and verify links, plus any deal.\n\nThis cannot be undone from the app."))
+    return;
+  toast("deleting…",0);
+  /* deals reference the business with ON DELETE SET NULL, so clear them first
+     or they survive as orphans. */
+  api("deals?business_id=eq."+a.business.id,{method:"DELETE"})
+    .then(function(){ return api("businesses?id=eq."+a.business.id,{method:"DELETE"}); })
+    .then(function(){
+      var i=data.audits.indexOf(a); if(i>-1) data.audits.splice(i,1);
+      ui.open=null; toast("deleted"); render();
+    })
+    .catch(function(e){ toast("delete failed: "+e.message,3600); });
+}
 function saveSetting(k,v){
   toast("saving…",0);
   return api("settings",{method:"POST", body:{key:k,value:v}, prefer:"resolution=merge-duplicates,return=representation"})
@@ -307,12 +330,13 @@ function gcal(b){
     +(b.meeting_url?"&location="+encodeURIComponent(b.meeting_url):"");
 }
 function csv(){
-  var head=["business","score","vertical","region","endpoint","domain","ads_since","validation","stage","ad_permalink","rationale"];
+  var head=["business","score","vertical","region","endpoint","domain","phone","email","contact_source","ads_since","validation","stage","ad_permalink","call_opener","rationale"];
   var rows=[head];
   data.audits.forEach(function(a){
     var b=a.business||{}, ad=a.ad||{};
-    rows.push([b.name,a.score,b.industry,b.region,a.endpoint_type,b.domain,ad.running_since,
-               a.validation,stageOf(a)||"",ad.permalink||"",a.score_rationale]);
+    rows.push([b.name,a.score,b.industry,b.region,a.endpoint_type,b.domain,b.phone,b.email,
+               b.contact_source,ad.running_since,a.validation,stageOf(a)||"",ad.permalink||"",
+               a.call_opener,a.score_rationale]);
   });
   return rows.map(function(r){ return r.map(function(c){
     c=String(c==null?"":c); return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c; }).join(","); }).join("\n");
@@ -385,13 +409,14 @@ function vLeads(){
     +sel("ep","Any endpoint",[["none","No owned page"],["page","Has a page"]],ui.f.ep)
     +sel("val","Any validation",[["unchecked","Unchecked"],["validated","Validated"],["disputed","Disputed"],["partial","Partial"]],ui.f.val)
     +'<input id="q" placeholder="Search business, domain, path…" value="'+esc(ui.f.q)+'"></div>';
-  h+='<div class="panel"><table><thead><tr><th style="width:44px">#</th><th>Business</th><th>Vertical</th><th>Endpoint</th><th>Ads since</th><th>Validation</th><th>Stage</th></tr></thead><tbody>';
-  if(!rows.length) h+='<tr><td colspan="7" class="empty">Nothing matches these filters.</td></tr>';
+  h+='<div class="panel"><table><thead><tr><th style="width:44px">#</th><th>Business</th><th>Vertical</th><th>Endpoint</th><th>Contact</th><th>Ads since</th><th>Validation</th><th>Stage</th></tr></thead><tbody>';
+  if(!rows.length) h+='<tr><td colspan="8" class="empty">Nothing matches these filters.</td></tr>';
   rows.forEach(function(a){
     var b=a.business||{}, ad=a.ad||{};
     h+='<tr data-open="'+a.id+'"><td><span class="sc sc'+a.score+'">'+a.score+'</span></td>'
       +'<td><div class="bn">'+esc(b.name)+'</div><div class="bs">'+esc(b.domain||"—")+'</div></td>'
       +'<td>'+esc(b.industry||"")+'</td><td>'+epTag(a.endpoint_type)+'</td>'
+      +'<td class="mono" style="font-size:12px">'+(b.phone?'<a href="tel:'+esc(b.phone.replace(/\D/g,""))+'" onclick="event.stopPropagation()">'+esc(b.phone)+'</a>':'<span style="color:var(--dim)">—</span>')+'</td>'
       +'<td class="mono" style="font-size:12px">'+esc(ad.running_since||"")+'</td>'
       +'<td>'+vTag(a.validation)+'</td><td>'+vTagStage(stageOf(a))+'</td></tr>';
   });
@@ -407,6 +432,17 @@ function vDrawer(){
     +'<div class="bs" style="margin-top:3px">'+esc(b.industry||"")+' · '+esc(b.region||"")+' · ads since '+esc(ad.running_since||"?")+'</div></div>'
     +'<button class="btn sm" data-close="1">Close</button></div><div class="db">';
   if(a.corrected_note) h+='<div class="banner b-warn"><b>Corrected record.</b> '+esc(a.corrected_note)+'</div>';
+  h+='<div class="sec"><h3>Contact</h3><div class="panel" style="padding:13px 15px">';
+  h+='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">';
+  h+= b.phone ? '<a class="btn sm pri" href="tel:'+esc(b.phone.replace(/\D/g,""))+'">Call '+esc(b.phone)+'</a>'
+             : '<span style="font-size:12.5px;color:var(--dim)">No phone found</span>';
+  if(b.email) h+='<a class="btn sm" href="mailto:'+esc(b.email)+'">'+esc(b.email)+'</a>';
+  if(ad.permalink) h+='<a class="btn sm" href="'+esc(ad.permalink)+'" target="_blank" rel="noopener">Meta ad \u2197</a>';
+  if(b.fb_page_url) h+='<a class="btn sm" href="'+esc(b.fb_page_url)+'" target="_blank" rel="noopener">FB page \u2197</a>';
+  if(b.domain && b.domain.indexOf("(none")<0) h+='<a class="btn sm" href="https://'+esc(b.domain.split(" (")[0])+'" target="_blank" rel="noopener">Site \u2197</a>';
+  h+='</div>';
+  if(b.contact_source) h+='<div class="mono" style="font-size:10.5px;color:var(--dim);margin-top:9px">source: '+esc(b.contact_source)+'</div>';
+  h+='</div></div>';
   h+='<div class="sec"><h3>Score &amp; rationale</h3><div style="display:flex;gap:10px;align-items:flex-start">'
     +'<span class="sc sc'+a.score+'" style="flex:none">'+a.score+'</span>'
     +'<div style="font-size:13.5px;line-height:1.6;color:var(--body)">'+esc(a.score_rationale||"—")+'</div></div></div>';
@@ -432,6 +468,15 @@ function vDrawer(){
   h+='<div class="sec"><h3>Pipeline</h3><div style="display:flex;gap:6px;flex-wrap:wrap">';
   STAGES.forEach(function(s){ h+='<button class="btn sm'+(stage===s[0]?" acc":"")+'" data-stage="'+s[0]+'">'+s[1]+'</button>'; });
   h+='</div>'+(stage?'<button class="btn sm" data-stage="" style="margin-top:8px">Remove from pipeline</button>':'')+'</div>';
+  h+='<div class="sec"><h3>Edit business</h3><div class="form">'
+    +'<label>Name</label><input id="eb_name" value="'+esc(b.name||"")+'">'
+    +'<label>Domain</label><input id="eb_domain" value="'+esc(b.domain||"")+'">'
+    +'<label>Phone</label><input id="eb_phone" value="'+esc(b.phone||"")+'">'
+    +'<label>Email</label><input id="eb_email" value="'+esc(b.email||"")+'">'
+    +'<button class="btn pri" id="savebiz">Save business</button></div></div>';
+  h+='<div class="sec"><h3>Danger zone</h3>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-bottom:9px">Deletes this lead, its audit, all issues, fixes, open questions, verify links and any deal. Not reversible from the app \u2014 restore comes from the vault backup.</div>'
+    +'<button class="btn" id="dellead" style="border-color:var(--accent);color:var(--accent)">Delete this lead</button></div>';
   return h+'</div></div></div>';
 }
 
@@ -533,6 +578,10 @@ document.addEventListener("click",function(e){
   var v=e.target.closest("[data-val]");   if(v){ setValidation(auditById(ui.open), v.dataset.val); return; }
   var s=e.target.closest("[data-stage]"); if(s){ setStage(auditById(ui.open), s.dataset.stage||null); return; }
   if(e.target.id==="savenote"){ setNote(auditById(ui.open), val("note")); return; }
+  if(e.target.id==="savebiz"){ saveBusiness(auditById(ui.open), {
+      name: val("eb_name")||null, domain: val("eb_domain")||null,
+      phone: val("eb_phone")||null, email: val("eb_email")||null }); return; }
+  if(e.target.id==="dellead"){ deleteLead(auditById(ui.open)); return; }
   var t=e.target.closest("[data-tab]");   if(t){ ui.tab=t.dataset.tab; ui.open=null; render(); return; }
   var cb=e.target.closest("button[data-close]"); if(cb){ ui.open=null; render(); return; }
   if(e.target.classList && e.target.classList.contains("drawer")){ ui.open=null; render(); return; }
