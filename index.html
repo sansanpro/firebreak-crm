@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Firebreak CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600&family=Manrope:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ground:#faf8f5; --surface:#fff; --line:#ece7df; --line2:#e8e3db;
+  --ink:#14120f; --body:#4a443b; --muted:#6b6459; --dim:#8a8175;
+  --accent:#b0492a; --accent2:#8f3a20; --green:#2f8f5b; --blue:#4a6fa8;
+  --purple:#8557a0; --amber:#a8701f; --grey:#cfc8bd;
+}
+body{background:var(--ground);color:var(--ink);font:15px/1.55 Manrope,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+.disp{font-family:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif}
+.mono{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace}
+a{color:var(--accent);text-decoration:none} a:hover{color:var(--accent2)}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:1360px;margin:0 auto;padding:0 28px}
+header{border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0;z-index:20}
+.bar{display:flex;align-items:center;justify-content:space-between;padding:15px 0;gap:18px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:9px}
+.brand span{font-size:17px;font-weight:600;letter-spacing:-.02em}
+nav{display:flex;gap:3px;flex-wrap:wrap}
+nav button{padding:7px 14px;border-radius:8px;font-size:13.5px;color:var(--muted)}
+nav button:hover{background:var(--ground);color:var(--ink)}
+nav button.on{background:var(--ink);color:var(--ground);font-weight:500}
+.pill{font-size:11px;padding:6px 12px;border:1px solid var(--line2);border-radius:100px;color:var(--muted);background:var(--ground)}
+main{padding:26px 0 70px}
+h1{font-size:27px;font-weight:600;letter-spacing:-.025em;font-family:"Bricolage Grotesque",sans-serif}
+.sub{color:var(--muted);font-size:13.5px;margin-top:4px}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:13px;margin-bottom:22px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:15px 17px}
+.stat .k{font-size:11px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase}
+.stat .v{font-size:25px;font-weight:600;margin-top:4px;font-family:"Bricolage Grotesque",sans-serif}
+.stat .n{font-size:11px;color:var(--muted);margin-top:2px;font-family:"JetBrains Mono",monospace}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.filters select,.filters input{padding:7px 11px;border:1px solid var(--line2);border-radius:8px;background:var(--surface);font-size:13px}
+.filters input{min-width:220px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:10.5px;letter-spacing:.05em;color:var(--dim);text-transform:uppercase;padding:11px 16px;background:#f7f4ef;border-bottom:1px solid var(--line);font-weight:500}
+td{padding:11px 16px;border-bottom:1px solid #f2eee7;font-size:13.5px}
+tbody tr{cursor:pointer;transition:background .15s}
+tbody tr:hover{background:#f7f4ef}
+tbody tr:last-child td{border-bottom:none}
+.bn{font-weight:600}
+.bs{font-size:10.5px;color:var(--dim);font-family:"JetBrains Mono",monospace;margin-top:2px}
+.sc{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;font-size:11px;font-weight:600;font-family:"JetBrains Mono",monospace}
+.sc1{background:var(--accent);color:#fff} .sc2{background:var(--grey);color:var(--ink)} .sc3{background:#eef0ec;color:var(--muted)}
+.tag{font-size:10.5px;padding:3px 8px;border-radius:5px;font-family:"JetBrains Mono",monospace;white-space:nowrap}
+.t-nowhere{background:#fbeeea;color:var(--accent)} .t-messenger,.t-social_profile{background:#f0edf5;color:var(--purple)}
+.t-form,.t-booking{background:#eef2f8;color:var(--blue)} .t-phone,.t-null{background:#f4f1ec;color:var(--muted)}
+.v-validated{background:#eaf5ee;color:var(--green)} .v-disputed{background:#fbeeea;color:var(--accent)}
+.v-partial{background:#fdf3e8;color:var(--amber)} .v-unchecked{background:#f4f1ec;color:var(--dim)}
+.btn{padding:8px 15px;border-radius:8px;font-size:13px;font-weight:500;border:1px solid var(--line2);background:var(--surface)}
+.btn:hover{background:var(--ground)} .btn.pri{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.btn.pri:hover{background:#2a2620} .btn.sm{padding:5px 10px;font-size:12px}
+.btn.acc{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn[disabled]{opacity:.5;cursor:default}
+.drawer{position:fixed;inset:0;background:rgba(20,18,15,.34);display:flex;justify-content:flex-end;z-index:60}
+.drawer .inner{width:min(660px,100%);background:var(--ground);height:100%;overflow-y:auto;border-left:1px solid var(--line)}
+.dh{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--line);padding:18px 24px;display:flex;justify-content:space-between;gap:14px;z-index:2}
+.db{padding:22px 24px 70px}
+.sec{margin-bottom:22px}
+.sec h3{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-bottom:9px;font-weight:600}
+.issue{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:12px 14px;margin-bottom:8px}
+.issue .txt{font-size:13.5px;font-weight:500;margin-bottom:5px}
+.issue .ev{font-size:12px;color:var(--muted);line-height:1.5}
+.vlinks a{display:block;font-size:12px;padding:6px 0;border-bottom:1px solid var(--line);word-break:break-all;font-family:"JetBrains Mono",monospace}
+.opener{background:#fff;border-left:3px solid var(--accent);border-radius:0 9px 9px 0;padding:13px 15px;font-size:13.5px;line-height:1.6}
+.note{width:100%;min-height:74px;padding:10px 12px;border:1px solid var(--line2);border-radius:8px;background:var(--surface);resize:vertical;font-size:13px}
+ul.li{list-style:none}
+ul.li li{font-size:13px;padding:6px 0 6px 16px;position:relative;color:var(--body);line-height:1.5}
+ul.li li:before{content:"";position:absolute;left:2px;top:13px;width:5px;height:5px;border-radius:50%;background:var(--grey)}
+.kb{display:grid;grid-template-columns:repeat(6,minmax(180px,1fr));gap:12px;overflow-x:auto;padding-bottom:8px}
+.col{background:#f4f1ec;border:1px solid var(--line);border-radius:10px;padding:11px;min-height:170px}
+.col h4{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:9px;display:flex;justify-content:space-between}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 11px;margin-bottom:8px;cursor:pointer}
+.card:hover{box-shadow:0 6px 18px rgba(20,18,15,.08)}
+.card .cn{font-size:13px;font-weight:600;line-height:1.3}
+.card .cm{font-size:10.5px;color:var(--dim);font-family:"JetBrains Mono",monospace;margin-top:4px}
+.mv{display:flex;gap:4px;margin-top:8px}
+.mv button{font-size:10.5px;padding:3px 7px;border-radius:5px;background:var(--ground);border:1px solid var(--line2);color:var(--muted)}
+.mv button:hover{background:var(--ink);color:var(--ground)}
+.form{display:grid;gap:10px;max-width:440px}
+.form input,.form select{padding:9px 12px;border:1px solid var(--line2);border-radius:8px;background:var(--surface);font-size:13.5px;width:100%}
+.form label{font-size:12px;color:var(--muted)}
+.empty{padding:44px 20px;text-align:center;color:var(--dim);font-size:13.5px}
+.banner{padding:11px 16px;border-radius:9px;font-size:13px;margin-bottom:18px;border:1px solid}
+.b-warn{background:#fdf3e8;border-color:#f0dcc0;color:#7a5214}
+.b-info{background:#eef2f8;border-color:#d8e2f0;color:#2f4d78}
+.b-err{background:#fbeeea;border-color:#f0cfc4;color:#8f3a20}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--ink);color:var(--ground);padding:10px 18px;border-radius:100px;font-size:12.5px;z-index:99;font-family:"JetBrains Mono",monospace;box-shadow:0 8px 24px rgba(20,18,15,.2)}
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.loginbox{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:30px}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--grey);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media(max-width:760px){.kb{grid-template-columns:repeat(6,minmax(150px,1fr))}.wrap{padding:0 16px}}
+</style>
+</head>
+<body>
+<div id="app"><div class="login"><div class="loginbox"><span class="spin"></span> loading…</div></div></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ── config ────────────────────────────────────────────────────────────── */
+var SB = "https://anppgukwdmgfmjnqindy.supabase.co";
+var ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFucHBndWt3ZG1nZm1qbnFpbmR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyMDQ4OTQsImV4cCI6MjEwMzc4MDg5NH0.ToHAeW5cmS2YuoXbw8eE1d-CD6SeoHnr3en1GaY0o3M";
+/* The anon key is public by design. Every table has RLS pinned to one user id,
+   so this key alone returns [] — verified before shipping. */
+
+var STAGES = [["new","New"],["contacted","Contacted"],["booked","Booked"],
+              ["proposal","Proposal"],["won","Won"],["lost","Lost"]];
+var SESS_KEY = "fb_session";
+
+/* ── state ─────────────────────────────────────────────────────────────── */
+var sess = null, data = { audits:[], contacts:[], bookings:[], settings:{} };
+var ui = { tab:"leads", open:null, f:{score:"",ind:"",ep:"",val:"",q:""}, err:"", busy:false };
+var app = document.getElementById("app");
+
+/* ── auth ──────────────────────────────────────────────────────────────── */
+function loadSess(){
+  try{ var s=JSON.parse(localStorage.getItem(SESS_KEY)||"null");
+       if(s && s.access_token) return s; }catch(e){}
+  return null;
+}
+function saveSess(s){
+  sess=s;
+  try{ localStorage.setItem(SESS_KEY, JSON.stringify(s)); }catch(e){}
+}
+function clearSess(){ sess=null; try{ localStorage.removeItem(SESS_KEY); }catch(e){} }
+
+function signIn(email, pw){
+  return fetch(SB+"/auth/v1/token?grant_type=password",{
+    method:"POST", headers:{ "apikey":ANON, "Content-Type":"application/json" },
+    body: JSON.stringify({ email:email, password:pw })
+  }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+    .then(function(x){
+      if(!x.ok || !x.j.access_token) throw new Error(x.j.error_description || x.j.msg || "Sign-in failed");
+      x.j.expires_at = Date.now() + (x.j.expires_in||3600)*1000;
+      saveSess(x.j); return x.j;
+    });
+}
+function refresh(){
+  if(!sess || !sess.refresh_token) return Promise.reject(new Error("no session"));
+  return fetch(SB+"/auth/v1/token?grant_type=refresh_token",{
+    method:"POST", headers:{ "apikey":ANON, "Content-Type":"application/json" },
+    body: JSON.stringify({ refresh_token: sess.refresh_token })
+  }).then(function(r){ return r.ok ? r.json() : Promise.reject(new Error("refresh failed")); })
+    .then(function(j){ j.expires_at = Date.now()+(j.expires_in||3600)*1000; saveSess(j); return j; });
+}
+
+/* ── rest ──────────────────────────────────────────────────────────────── */
+function api(path, opts){
+  opts = opts || {};
+  var go = function(){
+    var h = { "apikey":ANON, "Authorization":"Bearer "+(sess?sess.access_token:ANON) };
+    if(opts.body){ h["Content-Type"]="application/json"; h["Prefer"]=opts.prefer||"return=representation"; }
+    else if(opts.prefer) h["Prefer"]=opts.prefer;
+    return fetch(SB+"/rest/v1/"+path, {
+      method: opts.method||"GET", headers:h,
+      body: opts.body?JSON.stringify(opts.body):undefined
+    });
+  };
+  var need = sess && sess.expires_at && sess.expires_at - Date.now() < 60000;
+  return (need ? refresh().catch(function(){}) : Promise.resolve())
+    .then(go)
+    .then(function(r){
+      if(r.status===401){
+        return refresh().then(go).then(function(r2){ return handle(r2); });
+      }
+      return handle(r);
+    });
+  function handle(r){
+    if(r.status===204) return null;
+    return r.text().then(function(t){
+      var j=null; try{ j=t?JSON.parse(t):null; }catch(e){ j=t; }
+      if(!r.ok) throw new Error((j && (j.message||j.error_description)) || ("HTTP "+r.status));
+      return j;
+    });
+  }
+}
+
+var SELECT = "id,score,score_rationale,funnel_path,endpoint_type,validation,validation_note,"+
+  "call_opener,corrected_note,batch_label,discovery_query,"+
+  "business:businesses(id,slug,name,domain,industry,region,fb_page_url),"+
+  "ad:ads(ad_library_id,permalink,running_since,ads_running,endpoint_type,destination_url),"+
+  "issues(id,description,evidence,evidence_class,sort_order),"+
+  "suggested_fixes(id,fix,sort_order),"+
+  "open_questions(id,question,sort_order),"+
+  "verify_links(id,label,url),"+
+  "deals(id,stage,notes,next_action,next_action_due)";
+
+function loadAll(){
+  ui.busy = true;
+  return Promise.all([
+    api("audits?select="+encodeURIComponent(SELECT)+"&order=score.asc"),
+    api("contacts?select=*&order=created_at.desc"),
+    api("bookings?select=*&order=starts_at.desc"),
+    api("settings?select=*")
+  ]).then(function(r){
+    data.audits = r[0]||[];
+    data.contacts = r[1]||[];
+    data.bookings = r[2]||[];
+    data.settings = {};
+    (r[3]||[]).forEach(function(s){ data.settings[s.key]=s.value; });
+    data.audits.forEach(function(a){
+      (a.issues||[]).sort(function(x,y){return x.sort_order-y.sort_order;});
+      (a.suggested_fixes||[]).sort(function(x,y){return x.sort_order-y.sort_order;});
+      (a.open_questions||[]).sort(function(x,y){return x.sort_order-y.sort_order;});
+    });
+    ui.busy=false; ui.err="";
+  }).catch(function(e){ ui.busy=false; ui.err=e.message; });
+}
+
+/* ── toast ─────────────────────────────────────────────────────────────── */
+var toastEl=null, toastT=null;
+function toast(msg, ms){
+  if(!toastEl){ toastEl=document.createElement("div"); toastEl.className="toast"; document.body.appendChild(toastEl); }
+  toastEl.textContent=msg; clearTimeout(toastT);
+  if(ms!==0) toastT=setTimeout(function(){ if(toastEl){toastEl.remove(); toastEl=null;} }, ms||1600);
+}
+function clearToast(){ if(toastEl){toastEl.remove();toastEl=null;} clearTimeout(toastT); }
+
+/* ── writes ────────────────────────────────────────────────────────────── */
+function setValidation(a, v){
+  var prev=a.validation; a.validation=v; render();
+  toast("saving…",0);
+  api("audits?id=eq."+a.id, {method:"PATCH", body:{validation:v, validated_at: v==="unchecked"?null:new Date().toISOString()}})
+    .then(function(){ toast("saved"); })
+    .catch(function(e){ a.validation=prev; render(); toast("failed: "+e.message, 3200); });
+}
+function setNote(a, txt){
+  toast("saving…",0);
+  api("audits?id=eq."+a.id,{method:"PATCH", body:{validation_note:txt||null}})
+    .then(function(){ a.validation_note=txt; toast("note saved"); })
+    .catch(function(e){ toast("failed: "+e.message,3200); });
+}
+function setStage(a, stage){
+  var d = (a.deals||[])[0];
+  toast("saving…",0);
+  var p;
+  if(!stage && d){
+    p = api("deals?id=eq."+d.id,{method:"DELETE"}).then(function(){ a.deals=[]; });
+  } else if(d){
+    p = api("deals?id=eq."+d.id,{method:"PATCH", body:{stage:stage, updated_at:new Date().toISOString()}})
+        .then(function(){ d.stage=stage; });
+  } else {
+    p = api("deals",{method:"POST", body:{
+          venture:"funnel_discovery", business_id:a.business.id, audit_id:a.id,
+          title:a.business.name+" — funnel fix", stage:stage }})
+        .then(function(rows){ a.deals=[rows[0]]; });
+  }
+  p.then(function(){ toast("saved"); render(); })
+   .catch(function(e){ toast("failed: "+e.message,3200); });
+}
+function addContact(o){
+  toast("saving…",0);
+  return api("contacts",{method:"POST", body:o}).then(function(rows){
+    data.contacts.unshift(rows[0]); toast("added"); render();
+  }).catch(function(e){ toast("failed: "+e.message,3200); });
+}
+function delRow(table, id, arr){
+  toast("removing…",0);
+  return api(table+"?id=eq."+id,{method:"DELETE"}).then(function(){
+    var i=arr.findIndex(function(x){return x.id===id;}); if(i>-1) arr.splice(i,1);
+    toast("removed"); render();
+  }).catch(function(e){ toast("failed: "+e.message,3200); });
+}
+function addBooking(o){
+  toast("saving…",0);
+  return api("bookings",{method:"POST", body:o}).then(function(rows){
+    data.bookings.unshift(rows[0]); toast("logged"); render();
+  }).catch(function(e){ toast("failed: "+e.message,3200); });
+}
+function saveSetting(k,v){
+  toast("saving…",0);
+  return api("settings",{method:"POST", body:{key:k,value:v}, prefer:"resolution=merge-duplicates,return=representation"})
+    .then(function(){ data.settings[k]=v; toast("saved"); render(); })
+    .catch(function(e){ toast("failed: "+e.message,3200); });
+}
+
+/* ── helpers ───────────────────────────────────────────────────────────── */
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+function epTag(e){ e=e||"null"; return '<span class="tag t-'+esc(e)+'">'+esc(e.replace("_"," "))+'</span>'; }
+function vTag(v){ v=v||"unchecked"; return '<span class="tag v-'+esc(v)+'">'+esc(v)+'</span>'; }
+function stageOf(a){ var d=(a.deals||[])[0]; return d?d.stage:null; }
+function gcal(b){
+  if(!b.starts_at) return "";
+  var st=new Date(b.starts_at); if(isNaN(st)) return "";
+  var en=b.ends_at?new Date(b.ends_at):new Date(st.getTime()+30*60000);
+  function z(d){ return d.toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,""); }
+  return "https://calendar.google.com/calendar/render?action=TEMPLATE"
+    +"&text="+encodeURIComponent("Call — "+(b.attendee_name||""))
+    +"&dates="+z(st)+"/"+z(en)
+    +(b.attendee_email?"&add="+encodeURIComponent(b.attendee_email):"")
+    +(b.meeting_url?"&location="+encodeURIComponent(b.meeting_url):"");
+}
+function csv(){
+  var head=["business","score","vertical","region","endpoint","domain","ads_since","validation","stage","ad_permalink","rationale"];
+  var rows=[head];
+  data.audits.forEach(function(a){
+    var b=a.business||{}, ad=a.ad||{};
+    rows.push([b.name,a.score,b.industry,b.region,a.endpoint_type,b.domain,ad.running_since,
+               a.validation,stageOf(a)||"",ad.permalink||"",a.score_rationale]);
+  });
+  return rows.map(function(r){ return r.map(function(c){
+    c=String(c==null?"":c); return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c; }).join(","); }).join("\n");
+}
+
+/* ── views ─────────────────────────────────────────────────────────────── */
+function counts(){
+  var c={s1:0,s2:0,s3:0,noPage:0,val:0,dis:0,checked:0,deals:0};
+  data.audits.forEach(function(a){
+    c["s"+a.score]++;
+    if(["nowhere","messenger","social_profile"].indexOf(a.endpoint_type)>-1) c.noPage++;
+    if(a.validation==="validated"){c.val++;c.checked++;}
+    else if(a.validation==="disputed"){c.dis++;c.checked++;}
+    else if(a.validation==="partial"){c.checked++;}
+    if(stageOf(a)) c.deals++;
+  });
+  return c;
+}
+function st(k,v,n){ return '<div class="stat"><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="n">'+n+'</div></div>'; }
+
+function vOverview(){
+  var c=counts(), rate=c.checked?Math.round(100*c.val/c.checked):0;
+  var open=data.audits.filter(function(a){var s=stageOf(a);return s&&s!=="won"&&s!=="lost";});
+  var up=data.bookings.filter(function(b){return b.starts_at && new Date(b.starts_at)>=new Date() && b.status==="active";});
+  var h='<div class="head"><div><h1>Overview</h1><div class="sub">'+data.audits.length+' audited · '+c.deals+' in pipeline · '+data.bookings.length+' bookings</div></div></div>';
+  h+='<div class="stats">'
+    +st("Score 1 · hot",c.s1,"worst funnels, best leads")
+    +st("Score 2 · medium",c.s2,"fixable problems")
+    +st("No owned page",c.noPage,"messenger, social or none")
+    +st("Validation rate",(c.checked?rate+"%":"—"),(c.checked?c.val+" of "+c.checked+" held up":"nothing checked yet"))
+    +'</div>';
+  h+='<div class="panel" style="margin-bottom:20px"><table><thead><tr><th>Active deals</th><th>Stage</th><th>Score</th></tr></thead><tbody>';
+  if(!open.length) h+='<tr><td colspan="3" class="empty">No deals yet — promote a lead from Leads.</td></tr>';
+  open.forEach(function(a){ h+='<tr data-open="'+a.id+'"><td class="bn">'+esc(a.business.name)+'</td><td>'+vTagStage(stageOf(a))+'</td><td><span class="sc sc'+a.score+'">'+a.score+'</span></td></tr>'; });
+  h+='</tbody></table></div>';
+  h+='<div class="panel"><table><thead><tr><th>Upcoming bookings</th><th>When</th></tr></thead><tbody>';
+  if(!up.length) h+='<tr><td colspan="2" class="empty">No upcoming bookings.</td></tr>';
+  up.slice(0,6).forEach(function(b){ h+='<tr><td class="bn">'+esc(b.attendee_name)+'</td><td class="mono" style="font-size:12px">'+esc(new Date(b.starts_at).toLocaleString())+'</td></tr>'; });
+  return h+'</tbody></table></div>';
+}
+function vTagStage(s){ return s?'<span class="tag t-form">'+esc(s)+'</span>':'<span style="color:var(--dim);font-size:12px">—</span>'; }
+
+function filtered(){
+  var f=ui.f;
+  return data.audits.filter(function(a){
+    var b=a.business||{};
+    if(f.score && String(a.score)!==f.score) return false;
+    if(f.ind && b.industry!==f.ind) return false;
+    if(f.val && (a.validation||"unchecked")!==f.val) return false;
+    if(f.ep==="none" && ["nowhere","messenger","social_profile"].indexOf(a.endpoint_type)<0) return false;
+    if(f.ep==="page" && ["form","booking"].indexOf(a.endpoint_type)<0) return false;
+    if(f.q){ var q=f.q.toLowerCase();
+      if(((b.name||"")+" "+(b.domain||"")+" "+(b.industry||"")+" "+(a.funnel_path||"")).toLowerCase().indexOf(q)<0) return false; }
+    return true;
+  });
+}
+function sel(id,ph,opts,cur){
+  var h='<select data-f="'+id+'"><option value="">'+ph+'</option>';
+  opts.forEach(function(o){ h+='<option value="'+esc(o[0])+'"'+(cur===o[0]?" selected":"")+'>'+esc(o[1])+'</option>'; });
+  return h+'</select>';
+}
+function vLeads(){
+  var inds={}; data.audits.forEach(function(a){ if(a.business&&a.business.industry) inds[a.business.industry]=1; });
+  var rows=filtered();
+  var h='<div class="head"><div><h1>Leads</h1><div class="sub">'+rows.length+' of '+data.audits.length+' · click a row for evidence and verify links</div></div>'
+    +'<button class="btn" id="csv">Export CSV</button></div>';
+  h+='<div class="filters">'
+    +sel("score","Any score",[["1","1 · hot"],["2","2 · medium"],["3","3 · low"]],ui.f.score)
+    +sel("ind","Any vertical",Object.keys(inds).map(function(i){return [i,i];}),ui.f.ind)
+    +sel("ep","Any endpoint",[["none","No owned page"],["page","Has a page"]],ui.f.ep)
+    +sel("val","Any validation",[["unchecked","Unchecked"],["validated","Validated"],["disputed","Disputed"],["partial","Partial"]],ui.f.val)
+    +'<input id="q" placeholder="Search business, domain, path…" value="'+esc(ui.f.q)+'"></div>';
+  h+='<div class="panel"><table><thead><tr><th style="width:44px">#</th><th>Business</th><th>Vertical</th><th>Endpoint</th><th>Ads since</th><th>Validation</th><th>Stage</th></tr></thead><tbody>';
+  if(!rows.length) h+='<tr><td colspan="7" class="empty">Nothing matches these filters.</td></tr>';
+  rows.forEach(function(a){
+    var b=a.business||{}, ad=a.ad||{};
+    h+='<tr data-open="'+a.id+'"><td><span class="sc sc'+a.score+'">'+a.score+'</span></td>'
+      +'<td><div class="bn">'+esc(b.name)+'</div><div class="bs">'+esc(b.domain||"—")+'</div></td>'
+      +'<td>'+esc(b.industry||"")+'</td><td>'+epTag(a.endpoint_type)+'</td>'
+      +'<td class="mono" style="font-size:12px">'+esc(ad.running_since||"")+'</td>'
+      +'<td>'+vTag(a.validation)+'</td><td>'+vTagStage(stageOf(a))+'</td></tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+
+function vDrawer(){
+  var a=null; data.audits.forEach(function(x){ if(x.id===ui.open) a=x; });
+  if(!a) return "";
+  var b=a.business||{}, ad=a.ad||{}, stage=stageOf(a);
+  var h='<div class="drawer"><div class="inner">';
+  h+='<div class="dh"><div><div class="disp" style="font-size:19px;font-weight:600">'+esc(b.name)+'</div>'
+    +'<div class="bs" style="margin-top:3px">'+esc(b.industry||"")+' · '+esc(b.region||"")+' · ads since '+esc(ad.running_since||"?")+'</div></div>'
+    +'<button class="btn sm" data-close="1">Close</button></div><div class="db">';
+  if(a.corrected_note) h+='<div class="banner b-warn"><b>Corrected record.</b> '+esc(a.corrected_note)+'</div>';
+  h+='<div class="sec"><h3>Score &amp; rationale</h3><div style="display:flex;gap:10px;align-items:flex-start">'
+    +'<span class="sc sc'+a.score+'" style="flex:none">'+a.score+'</span>'
+    +'<div style="font-size:13.5px;line-height:1.6;color:var(--body)">'+esc(a.score_rationale||"—")+'</div></div></div>';
+  h+='<div class="sec"><h3>Validation</h3><div style="display:flex;gap:6px;flex-wrap:wrap">';
+  [["validated","Validated"],["disputed","Disputed"],["partial","Partial"],["unchecked","Unchecked"]].forEach(function(v){
+    h+='<button class="btn sm'+(a.validation===v[0]?" pri":"")+'" data-val="'+v[0]+'">'+v[1]+'</button>'; });
+  h+='</div><div style="font-size:11.5px;color:var(--dim);margin-top:7px">Disputed findings are excluded from the call list.</div></div>';
+  if(a.call_opener) h+='<div class="sec"><h3>Call opener</h3><div class="opener">'+esc(a.call_opener)+'</div></div>';
+  h+='<div class="sec"><h3>Funnel path</h3><div class="mono" style="font-size:12px;color:var(--body);line-height:1.6;word-break:break-word">'+esc(a.funnel_path||"—")+'</div></div>';
+  h+='<div class="sec"><h3>Issues found ('+(a.issues||[]).length+')</h3>';
+  (a.issues||[]).forEach(function(i){
+    h+='<div class="issue"><div class="txt">'+esc(i.description)+'</div><div class="ev"><b style="color:var(--dim)">'+esc(i.evidence_class)+'</b> — '+esc(i.evidence)+'</div></div>'; });
+  h+='</div>';
+  if((a.suggested_fixes||[]).length){ h+='<div class="sec"><h3>Suggested fixes</h3><ul class="li">';
+    a.suggested_fixes.forEach(function(f){ h+='<li>'+esc(f.fix)+'</li>'; }); h+='</ul></div>'; }
+  if((a.open_questions||[]).length){ h+='<div class="sec"><h3>Could not determine</h3><ul class="li">';
+    a.open_questions.forEach(function(g){ h+='<li>'+esc(g.question)+'</li>'; }); h+='</ul></div>'; }
+  if((a.verify_links||[]).length){ h+='<div class="sec"><h3>Verify</h3><div class="vlinks">';
+    a.verify_links.forEach(function(v){ h+='<a href="'+esc(v.url)+'" target="_blank" rel="noopener">'+esc(v.label)+' ↗</a>'; });
+    h+='</div></div>'; }
+  h+='<div class="sec"><h3>Notes</h3><textarea class="note" id="note" placeholder="Call notes, objections, next step…">'+esc(a.validation_note||"")+'</textarea>'
+    +'<button class="btn sm" id="savenote" style="margin-top:8px">Save note</button></div>';
+  h+='<div class="sec"><h3>Pipeline</h3><div style="display:flex;gap:6px;flex-wrap:wrap">';
+  STAGES.forEach(function(s){ h+='<button class="btn sm'+(stage===s[0]?" acc":"")+'" data-stage="'+s[0]+'">'+s[1]+'</button>'; });
+  h+='</div>'+(stage?'<button class="btn sm" data-stage="" style="margin-top:8px">Remove from pipeline</button>':'')+'</div>';
+  return h+'</div></div></div>';
+}
+
+function vPipeline(){
+  var h='<div class="head"><div><h1>Pipeline</h1><div class="sub">Promote from Leads · arrows move a card</div></div></div><div class="kb">';
+  STAGES.forEach(function(s,idx){
+    var items=data.audits.filter(function(a){return stageOf(a)===s[0];});
+    h+='<div class="col"><h4><span>'+s[1]+'</span><span>'+items.length+'</span></h4>';
+    items.forEach(function(a){
+      h+='<div class="card" data-open="'+a.id+'"><div class="cn">'+esc(a.business.name)+'</div>'
+        +'<div class="cm">score '+a.score+' · '+esc(a.business.industry||"")+'</div><div class="mv">'
+        +(idx>0?'<button data-mv="'+a.id+'|'+STAGES[idx-1][0]+'">←</button>':"")
+        +(idx<STAGES.length-1?'<button data-mv="'+a.id+'|'+STAGES[idx+1][0]+'">→</button>':"")
+        +'</div></div>';
+    });
+    h+='</div>';
+  });
+  return h+'</div>';
+}
+
+function vContacts(){
+  var h='<div class="head"><div><h1>Contacts</h1><div class="sub">'+data.contacts.length+' · business-published details only</div></div></div>';
+  h+='<div class="panel" style="margin-bottom:20px"><table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th></th></tr></thead><tbody>';
+  if(!data.contacts.length) h+='<tr><td colspan="5" class="empty">No contacts yet.</td></tr>';
+  data.contacts.forEach(function(c){
+    h+='<tr><td class="bn">'+esc(c.name)+'</td><td class="mono" style="font-size:12px">'+esc(c.email||"")+'</td>'
+      +'<td class="mono" style="font-size:12px">'+esc(c.phone||"")+'</td><td>'+esc(c.role||"")+'</td>'
+      +'<td style="text-align:right"><button class="btn sm" data-delc="'+c.id+'">Remove</button></td></tr>'; });
+  h+='</tbody></table></div>';
+  h+='<div class="panel" style="padding:18px"><h3 style="font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-bottom:11px">Add contact</h3>'
+    +'<div class="form"><input id="cn" placeholder="Name"><input id="ce" placeholder="Email" type="email"><input id="cp" placeholder="Phone"><input id="cr" placeholder="Role">'
+    +'<button class="btn pri" id="addc">Add contact</button></div></div>';
+  return h;
+}
+
+function vBookings(){
+  var cal=data.settings.cal_link||"";
+  var h='<div class="head"><div><h1>Bookings</h1><div class="sub">'+data.bookings.length+' logged</div></div>'
+    +(cal?'<a class="btn pri" href="'+esc(cal)+'" target="_blank" rel="noopener">Open booking page ↗</a>':"")+'</div>';
+  if(!cal) h+='<div class="banner b-info">Add your Cal.com link below. Automatic sync via webhook is the next step now that there is a real database.</div>';
+  h+='<div class="panel" style="margin-bottom:20px"><table><thead><tr><th>Who</th><th>When</th><th>Email</th><th>Status</th><th></th></tr></thead><tbody>';
+  if(!data.bookings.length) h+='<tr><td colspan="5" class="empty">No bookings yet.</td></tr>';
+  data.bookings.forEach(function(b){
+    var g=gcal(b);
+    h+='<tr><td class="bn">'+esc(b.attendee_name||"")+'</td>'
+      +'<td class="mono" style="font-size:12px">'+esc(b.starts_at?new Date(b.starts_at).toLocaleString():"")+'</td>'
+      +'<td class="mono" style="font-size:12px">'+esc(b.attendee_email||"")+'</td>'
+      +'<td>'+esc(b.status)+'</td>'
+      +'<td style="text-align:right;white-space:nowrap">'
+      +(g?'<a class="btn sm" href="'+esc(g)+'" target="_blank" rel="noopener">Add to Calendar</a> ':"")
+      +'<button class="btn sm" data-delb="'+b.id+'">Remove</button></td></tr>'; });
+  h+='</tbody></table></div>';
+  h+='<div class="panel" style="padding:18px;margin-bottom:20px"><h3 style="font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-bottom:11px">Log a booking</h3>'
+    +'<div class="form"><input id="bw" placeholder="Who"><input id="be" placeholder="Their email" type="email"><label>When</label><input id="bd" type="datetime-local"><input id="bm" placeholder="Meeting URL (optional)">'
+    +'<div style="display:flex;gap:8px"><button class="btn pri" id="addb">Log booking</button><button class="btn" id="meetnew">New Google Meet</button></div></div></div>';
+  h+='<div class="panel" style="padding:18px"><h3 style="font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-bottom:11px">Booking page link</h3>'
+    +'<div class="form"><input id="cal" placeholder="https://cal.com/your-name/intro" value="'+esc(cal)+'"><button class="btn" id="savecal">Save link</button></div></div>';
+  return h;
+}
+
+function vLogin(msg){
+  return '<div class="login"><div class="loginbox">'
+    +'<div style="display:flex;align-items:center;gap:9px;margin-bottom:6px">'
+    +'<svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="#b0492a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5c2.2 3 3.6 5 3.6 7a3.6 3.6 0 0 1-7.2 0c0-2 1.4-4 3.6-7z"/><path d="M3 15.5h14"/><path d="M3 18h5"/><path d="M12 18h5"/></svg>'
+    +'<span class="disp" style="font-size:17px;font-weight:600">firebreak</span></div>'
+    +'<div class="sub" style="margin-bottom:18px">Sign in to your CRM</div>'
+    +(msg?'<div class="banner b-err">'+esc(msg)+'</div>':"")
+    +'<div class="form" style="max-width:none"><input id="li_e" type="email" placeholder="Email" autocomplete="username">'
+    +'<input id="li_p" type="password" placeholder="Password" autocomplete="current-password">'
+    +'<button class="btn pri" id="li_go">Sign in</button></div></div></div>';
+}
+
+function render(){
+  if(!sess) { app.innerHTML = vLogin(ui.err); var e=document.getElementById("li_e"); if(e) e.focus(); return; }
+  var tabs=[["overview","Overview"],["leads","Leads"],["pipeline","Pipeline"],["contacts","Contacts"],["bookings","Bookings"]];
+  var h='<header><div class="wrap"><div class="bar">'
+    +'<div class="brand"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="#b0492a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5c2.2 3 3.6 5 3.6 7a3.6 3.6 0 0 1-7.2 0c0-2 1.4-4 3.6-7z"/><path d="M3 15.5h14"/><path d="M3 18h5"/><path d="M12 18h5"/></svg><span class="disp">firebreak</span></div>'
+    +'<nav>'+tabs.map(function(t){return '<button data-tab="'+t[0]+'" class="'+(ui.tab===t[0]?"on":"")+'">'+t[1]+'</button>';}).join("")+'</nav>'
+    +'<div style="display:flex;gap:8px;align-items:center"><span class="pill mono">supabase</span>'
+    +'<button class="btn sm" id="signout">Sign out</button></div>'
+    +'</div></div></header><main><div class="wrap">';
+  if(ui.err) h+='<div class="banner b-err">'+esc(ui.err)+' <button class="btn sm" id="retry" style="margin-left:8px">Retry</button></div>';
+  if(ui.busy) h+='<div class="banner b-info"><span class="spin"></span> loading…</div>';
+  h+= ui.tab==="overview"?vOverview(): ui.tab==="leads"?vLeads(): ui.tab==="pipeline"?vPipeline():
+      ui.tab==="contacts"?vContacts(): vBookings();
+  h+='</div></main>'+vDrawer();
+  app.innerHTML=h;
+}
+
+/* ── events ────────────────────────────────────────────────────────────── */
+function auditById(id){ var r=null; data.audits.forEach(function(a){ if(a.id===id) r=a; }); return r; }
+function val(id){ var e=document.getElementById(id); return e?e.value.trim():""; }
+
+document.addEventListener("click",function(e){
+  if(e.target.id==="li_go"){ doLogin(); return; }
+  if(e.target.id==="signout"){ clearSess(); ui.err=""; render(); return; }
+  if(e.target.id==="retry"){ ui.err=""; render(); loadAll().then(render); return; }
+  /* SPECIFIC ACTIONS BEFORE CLOSE — the drawer overlay would otherwise swallow them */
+  var v=e.target.closest("[data-val]");   if(v){ setValidation(auditById(ui.open), v.dataset.val); return; }
+  var s=e.target.closest("[data-stage]"); if(s){ setStage(auditById(ui.open), s.dataset.stage||null); return; }
+  if(e.target.id==="savenote"){ setNote(auditById(ui.open), val("note")); return; }
+  var t=e.target.closest("[data-tab]");   if(t){ ui.tab=t.dataset.tab; ui.open=null; render(); return; }
+  var cb=e.target.closest("button[data-close]"); if(cb){ ui.open=null; render(); return; }
+  if(e.target.classList && e.target.classList.contains("drawer")){ ui.open=null; render(); return; }
+  var mv=e.target.closest("[data-mv]");   if(mv){ var p=mv.dataset.mv.split("|"); setStage(auditById(p[0]), p[1]); return; }
+  var o=e.target.closest("[data-open]");  if(o){ ui.open=o.dataset.open; render(); return; }
+  if(e.target.id==="csv"){ downloadCsv(); return; }
+  if(e.target.id==="addc"){ var n=val("cn"); if(!n) return;
+    addContact({name:n,email:val("ce")||null,phone:val("cp")||null,role:val("cr")||null}); return; }
+  var dc=e.target.closest("[data-delc]"); if(dc){ delRow("contacts",dc.dataset.delc,data.contacts); return; }
+  if(e.target.id==="meetnew"){ window.open("https://meet.google.com/new","_blank","noopener"); return; }
+  if(e.target.id==="addb"){ var w=val("bw"); if(!w) return;
+    addBooking({provider:"manual",attendee_name:w,attendee_email:val("be")||null,
+      starts_at: val("bd")?new Date(val("bd")).toISOString():null,
+      meeting_url: val("bm")||null, status:"active"}); return; }
+  var db=e.target.closest("[data-delb]"); if(db){ delRow("bookings",db.dataset.delb,data.bookings); return; }
+  if(e.target.id==="savecal"){ saveSetting("cal_link", val("cal")); return; }
+});
+document.addEventListener("keydown",function(e){
+  if(e.key==="Enter" && (e.target.id==="li_e"||e.target.id==="li_p")) doLogin();
+  if(e.key==="Escape" && ui.open){ ui.open=null; render(); }
+});
+document.addEventListener("change",function(e){
+  var f=e.target.closest("[data-f]"); if(f){ ui.f[f.dataset.f]=e.target.value; render(); }
+});
+document.addEventListener("input",function(e){
+  if(e.target.id==="q"){ ui.f.q=e.target.value; var p=e.target.selectionStart; render();
+    var q=document.getElementById("q"); if(q){ q.focus(); try{q.setSelectionRange(p,p);}catch(_){ } } }
+});
+
+function doLogin(){
+  var em=val("li_e"), pw=val("li_p");
+  if(!em||!pw){ ui.err="Email and password required"; render(); return; }
+  toast("signing in…",0);
+  signIn(em,pw).then(function(){ ui.err=""; clearToast(); render(); return loadAll(); })
+    .then(render)
+    .catch(function(e){ clearToast(); ui.err=e.message; render(); });
+}
+function downloadCsv(){
+  var blob=new Blob([csv()],{type:"text/csv"});
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="firebreak-leads.csv";
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },0);
+}
+
+/* ── boot ──────────────────────────────────────────────────────────────── */
+sess = loadSess();
+if(sess){ render(); loadAll().then(render); }
+else render();
+})();
+</script>
+</body>
+</html>
