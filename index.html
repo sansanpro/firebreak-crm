@@ -191,7 +191,7 @@ function api(path, opts){
 }
 
 var SELECT = "id,score,score_rationale,funnel_path,endpoint_type,validation,validation_note,"+
-  "call_opener,corrected_note,batch_label,discovery_query,"+
+  "call_opener,corrected_note,batch_label,discovery_query,draft_subject,draft_body,"+
   "business:businesses(id,slug,name,domain,industry,region,fb_page_url,phone,email,contact_source),"+
   "ad:ads(ad_library_id,permalink,running_since,ads_running,endpoint_type,destination_url),"+
   "issues(id,description,evidence,evidence_class,sort_order),"+
@@ -282,6 +282,38 @@ function addBooking(o){
     data.bookings.unshift(rows[0]); toast("logged"); render();
   }).catch(function(e){ toast("failed: "+e.message,3200); });
 }
+function sigBlock(){
+  var sig=(data.settings.email_sig||"").trim();
+  var cal=(data.settings.cal_link||"").trim();
+  var out=[];
+  if(sig) out.push(sig);
+  if(cal) out.push("Grab a time here: "+cal);
+  return out.join("\n");
+}
+function composeEmail(a){
+  var body=(a.draft_body||"").trim();
+  var sig=sigBlock();
+  return body + (sig?("\n\n"+sig):"");
+}
+function saveDraft(a, subj, body){
+  toast("saving…",0);
+  api("audits?id=eq."+a.id,{method:"PATCH", body:{draft_subject:subj||null, draft_body:body||null}})
+    .then(function(){ a.draft_subject=subj; a.draft_body=body; toast("draft saved"); })
+    .catch(function(e){ toast("failed: "+e.message,3400); });
+}
+function copyText(t, label){
+  function done(){ toast(label+" copied"); }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(done).catch(fallback);
+  } else fallback();
+  function fallback(){
+    var ta=document.createElement("textarea");
+    ta.value=t; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); done(); }catch(e){ toast("copy failed",2600); }
+    ta.remove();
+  }
+}
 function saveBusiness(a, o){
   toast("saving…",0);
   api("businesses?id=eq."+a.business.id,{method:"PATCH", body:o})
@@ -330,13 +362,13 @@ function gcal(b){
     +(b.meeting_url?"&location="+encodeURIComponent(b.meeting_url):"");
 }
 function csv(){
-  var head=["business","score","vertical","region","endpoint","domain","phone","email","contact_source","ads_since","validation","stage","ad_permalink","call_opener","rationale"];
+  var head=["business","score","vertical","region","endpoint","domain","phone","email","contact_source","ads_since","validation","stage","ad_permalink","call_opener","draft_subject","draft_body","rationale"];
   var rows=[head];
   data.audits.forEach(function(a){
     var b=a.business||{}, ad=a.ad||{};
     rows.push([b.name,a.score,b.industry,b.region,a.endpoint_type,b.domain,b.phone,b.email,
                b.contact_source,ad.running_since,a.validation,stageOf(a)||"",ad.permalink||"",
-               a.call_opener,a.score_rationale]);
+               a.call_opener,a.draft_subject,composeEmail(a),a.score_rationale]);
   });
   return rows.map(function(r){ return r.map(function(c){
     c=String(c==null?"":c); return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c; }).join(","); }).join("\n");
@@ -451,6 +483,18 @@ function vDrawer(){
     h+='<button class="btn sm'+(a.validation===v[0]?" pri":"")+'" data-val="'+v[0]+'">'+v[1]+'</button>'; });
   h+='</div><div style="font-size:11.5px;color:var(--dim);margin-top:7px">Disputed findings are excluded from the call list.</div></div>';
   if(a.call_opener) h+='<div class="sec"><h3>Call opener</h3><div class="opener">'+esc(a.call_opener)+'</div></div>';
+  h+='<div class="sec"><h3>Draft email</h3>'
+    +'<div class="form" style="max-width:none">'
+    +'<label>Subject</label><input id="em_subj" value="'+esc(a.draft_subject||"")+'">'
+    +'<label>Body <span style="color:var(--dim)">— signature and booking link are appended automatically</span></label>'
+    +'<textarea class="note" id="em_body" style="min-height:210px">'+esc(a.draft_body||"")+'</textarea>'
+    +'<div class="mono" style="font-size:11px;color:var(--dim);white-space:pre-wrap;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px">'+esc(sigBlock()||"(no signature set — add one under Bookings)")+'</div>'
+    +'<div style="display:flex;gap:7px;flex-wrap:wrap">'
+    +'<button class="btn sm pri" id="em_copy">Copy email</button>'
+    +'<button class="btn sm" id="em_copysubj">Copy subject</button>'
+    +(b.email?'<a class="btn sm" id="em_open" href="#">Open in email</a>':'<span class="btn sm" style="opacity:.55;cursor:default">No email on file</span>')
+    +'<button class="btn sm" id="em_save">Save draft</button>'
+    +'</div></div></div>';
   h+='<div class="sec"><h3>Funnel path</h3><div class="mono" style="font-size:12px;color:var(--body);line-height:1.6;word-break:break-word">'+esc(a.funnel_path||"—")+'</div></div>';
   h+='<div class="sec"><h3>Issues found ('+(a.issues||[]).length+')</h3>';
   (a.issues||[]).forEach(function(i){
@@ -532,8 +576,13 @@ function vBookings(){
   h+='<div class="panel" style="padding:18px;margin-bottom:20px"><h3 style="font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-bottom:11px">Log a booking</h3>'
     +'<div class="form"><input id="bw" placeholder="Who"><input id="be" placeholder="Their email" type="email"><label>When</label><input id="bd" type="datetime-local"><input id="bm" placeholder="Meeting URL (optional)">'
     +'<div style="display:flex;gap:8px"><button class="btn pri" id="addb">Log booking</button><button class="btn" id="meetnew">New Google Meet</button></div></div></div>';
-  h+='<div class="panel" style="padding:18px"><h3 style="font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-bottom:11px">Booking page link</h3>'
-    +'<div class="form"><input id="cal" placeholder="https://cal.com/your-name/intro" value="'+esc(cal)+'"><button class="btn" id="savecal">Save link</button></div></div>';
+  h+='<div class="panel" style="padding:18px"><h3 style="font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-bottom:11px">Booking link &amp; email signature</h3>'
+    +'<div class="form" style="max-width:520px"><label>Cal.com booking link</label>'
+    +'<input id="cal" placeholder="https://cal.com/your-name/15min" value="'+esc(cal)+'">'
+    +'<label>Email signature — appended to every draft</label>'
+    +'<textarea class="note" id="sig" style="min-height:90px">'+esc(data.settings.email_sig||"")+'</textarea>'
+    +'<button class="btn pri" id="savecal">Save</button></div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-top:12px;line-height:1.6">Changing either updates every draft email at once — the signature is stored separately from the 18 bodies.</div></div>';
   return h;
 }
 
@@ -578,6 +627,17 @@ document.addEventListener("click",function(e){
   var v=e.target.closest("[data-val]");   if(v){ setValidation(auditById(ui.open), v.dataset.val); return; }
   var s=e.target.closest("[data-stage]"); if(s){ setStage(auditById(ui.open), s.dataset.stage||null); return; }
   if(e.target.id==="savenote"){ setNote(auditById(ui.open), val("note")); return; }
+  if(e.target.id==="em_copy"){ var A=auditById(ui.open);
+      copyText(composeEmail({draft_body: val("em_body")}), "Email"); return; }
+  if(e.target.id==="em_copysubj"){ copyText(val("em_subj"), "Subject"); return; }
+  if(e.target.id==="em_save"){ saveDraft(auditById(ui.open), val("em_subj"), val("em_body")); return; }
+  if(e.target.id==="em_open"){ e.preventDefault();
+      var A2=auditById(ui.open);
+      var to=(A2.business&&A2.business.email)||"";
+      window.location.href="mailto:"+encodeURIComponent(to)
+        +"?subject="+encodeURIComponent(val("em_subj"))
+        +"&body="+encodeURIComponent(composeEmail({draft_body: val("em_body")}));
+      return; }
   if(e.target.id==="savebiz"){ saveBusiness(auditById(ui.open), {
       name: val("eb_name")||null, domain: val("eb_domain")||null,
       phone: val("eb_phone")||null, email: val("eb_email")||null }); return; }
@@ -597,7 +657,10 @@ document.addEventListener("click",function(e){
       starts_at: val("bd")?new Date(val("bd")).toISOString():null,
       meeting_url: val("bm")||null, status:"active"}); return; }
   var db=e.target.closest("[data-delb]"); if(db){ delRow("bookings",db.dataset.delb,data.bookings); return; }
-  if(e.target.id==="savecal"){ saveSetting("cal_link", val("cal")); return; }
+  if(e.target.id==="savecal"){
+      var sg=val("sig");
+      saveSetting("cal_link", val("cal")).then(function(){ return saveSetting("email_sig", sg); });
+      return; }
 });
 document.addEventListener("keydown",function(e){
   if(e.key==="Enter" && (e.target.id==="li_e"||e.target.id==="li_p")) doLogin();
