@@ -123,7 +123,7 @@ var STAGES = [["new","New"],["contacted","Contacted"],["booked","Booked"],
 var SESS_KEY = "fb_session";
 
 /* ── state ─────────────────────────────────────────────────────────────── */
-var sess = null, data = { audits:[], contacts:[], bookings:[], settings:{} };
+var sess = null, data = { audits:[], contacts:[], bookings:[], settings:{}, messages:[] };
 var ui = { tab:"leads", open:null, f:{score:"",ind:"",ep:"",val:"",q:""}, err:"", busy:false };
 var app = document.getElementById("app");
 
@@ -206,13 +206,15 @@ function loadAll(){
     api("audits?select="+encodeURIComponent(SELECT)+"&order=score.asc"),
     api("contacts?select=*&order=created_at.desc"),
     api("bookings?select=*&order=starts_at.desc"),
-    api("settings?select=*")
+    api("settings?select=*"),
+    api("messages?select=*&order=created_at.asc")
   ]).then(function(r){
     data.audits = r[0]||[];
     data.contacts = r[1]||[];
     data.bookings = r[2]||[];
     data.settings = {};
     (r[3]||[]).forEach(function(s){ data.settings[s.key]=s.value; });
+    data.messages = r[4]||[];
     data.audits.forEach(function(a){
       (a.issues||[]).sort(function(x,y){return x.sort_order-y.sort_order;});
       (a.suggested_fixes||[]).sort(function(x,y){return x.sort_order-y.sort_order;});
@@ -281,6 +283,29 @@ function addBooking(o){
   return api("bookings",{method:"POST", body:o}).then(function(rows){
     data.bookings.unshift(rows[0]); toast("logged"); render();
   }).catch(function(e){ toast("failed: "+e.message,3200); });
+}
+function msgsFor(a){
+  var id=a.business&&a.business.id;
+  return id ? data.messages.filter(function(m){ return m.business_id===id; }) : [];
+}
+function unreadCount(){
+  return data.messages.filter(function(m){ return m.direction==="inbound"; }).length;
+}
+function sendSms(a, body){
+  var to=a.business&&a.business.phone;
+  if(!to){ toast("no phone on file",2600); return; }
+  toast("sending…",0);
+  var url=SB+"/functions/v1/sms-send";
+  fetch(url,{ method:"POST",
+    headers:{ "Content-Type":"application/json", "apikey":ANON,
+              "Authorization":"Bearer "+(sess?sess.access_token:"") },
+    body: JSON.stringify({ to: to, body: body, business_id: a.business.id })
+  }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); })
+    .then(function(x){
+      if(!x.ok){ toast(x.j.error||"send failed",4000); return; }
+      toast("sent"); return loadAll().then(render);
+    })
+    .catch(function(e){ toast("send failed: "+e.message,4000); });
 }
 function sigBlock(){
   var sig=(data.settings.email_sig||"").trim();
@@ -399,6 +424,7 @@ function vOverview(){
     +st("Score 2 · medium",c.s2,"fixable problems")
     +st("No owned page",c.noPage,"messenger, social or none")
     +st("Validation rate",(c.checked?rate+"%":"—"),(c.checked?c.val+" of "+c.checked+" held up":"nothing checked yet"))
+    +st("Inbound SMS",unreadCount(),(unreadCount()?"replies from leads":"none yet"))
     +'</div>';
   h+='<div class="panel" style="margin-bottom:20px"><table><thead><tr><th>Active deals</th><th>Stage</th><th>Score</th></tr></thead><tbody>';
   if(!open.length) h+='<tr><td colspan="3" class="empty">No deals yet — promote a lead from Leads.</td></tr>';
@@ -450,7 +476,9 @@ function vLeads(){
       +'<td>'+esc(b.industry||"")+'</td><td>'+epTag(a.endpoint_type)+'</td>'
       +'<td class="mono" style="font-size:12px">'+(b.phone?'<a href="tel:'+esc(b.phone.replace(/\D/g,""))+'" onclick="event.stopPropagation()">'+esc(b.phone)+'</a>':'<span style="color:var(--dim)">—</span>')+'</td>'
       +'<td class="mono" style="font-size:12px">'+esc(ad.running_since||"")+'</td>'
-      +'<td>'+vTag(a.validation)+'</td><td>'+vTagStage(stageOf(a))+'</td></tr>';
+      +'<td>'+vTag(a.validation)+'</td><td>'+vTagStage(stageOf(a))
+      +(msgsFor(a).some(function(m){return m.direction==="inbound";})?' <span class="tag v-validated">SMS</span>':'')
+      +'</td></tr>';
   });
   return h+'</tbody></table></div>';
 }
@@ -483,6 +511,31 @@ function vDrawer(){
     h+='<button class="btn sm'+(a.validation===v[0]?" pri":"")+'" data-val="'+v[0]+'">'+v[1]+'</button>'; });
   h+='</div><div style="font-size:11.5px;color:var(--dim);margin-top:7px">Disputed findings are excluded from the call list.</div></div>';
   if(a.call_opener) h+='<div class="sec"><h3>Call opener</h3><div class="opener">'+esc(a.call_opener)+'</div></div>';
+  var MS=msgsFor(a);
+  h+='<div class="sec"><h3>SMS thread'+(MS.length?(' ('+MS.length+')'):'')+'</h3>';
+  if(!b.phone){
+    h+='<div class="banner b-info" style="margin:0">No phone on file for this lead, so SMS is unavailable. Add one under Edit business.</div>';
+  } else {
+    h+='<div class="panel" style="padding:12px 13px;max-height:260px;overflow-y:auto">';
+    if(!MS.length) h+='<div style="font-size:12.5px;color:var(--dim)">No messages yet. They can text '+esc(data.settings.sms_number||"your Twilio number")+', or you can open the thread below.</div>';
+    MS.forEach(function(m){
+      var inb=m.direction==="inbound";
+      h+='<div style="margin-bottom:9px;display:flex;justify-content:'+(inb?"flex-start":"flex-end")+'">'
+        +'<div style="max-width:82%;background:'+(inb?"#fff":"#14120f")+';color:'+(inb?"var(--ink)":"var(--ground)")+';'
+        +'border:1px solid '+(inb?"var(--line)":"#14120f")+';border-radius:10px;padding:8px 11px;font-size:13px;line-height:1.5">'
+        +esc(m.body)
+        +'<div class="mono" style="font-size:9.5px;opacity:.6;margin-top:4px">'+esc(new Date(m.created_at).toLocaleString())+(m.status?(" · "+esc(m.status)):"")+'</div>'
+        +'</div></div>';
+    });
+    h+='</div>';
+    h+='<div class="form" style="max-width:none;margin-top:9px">'
+      +'<textarea class="note" id="sms_body" style="min-height:62px" placeholder="Reply to '+esc(b.phone)+'…"></textarea>'
+      +'<div style="display:flex;gap:7px;align-items:center">'
+      +'<button class="btn sm pri" id="sms_send">Send SMS</button>'
+      +'<span style="font-size:11.5px;color:var(--dim)">Reply only — do not cold-text a lead who has not contacted you first.</span>'
+      +'</div></div>';
+  }
+  h+='</div>';
   h+='<div class="sec"><h3>Draft email</h3>'
     +'<div class="form" style="max-width:none">'
     +'<label>Subject</label><input id="em_subj" value="'+esc(a.draft_subject||"")+'">'
@@ -627,6 +680,8 @@ document.addEventListener("click",function(e){
   var v=e.target.closest("[data-val]");   if(v){ setValidation(auditById(ui.open), v.dataset.val); return; }
   var s=e.target.closest("[data-stage]"); if(s){ setStage(auditById(ui.open), s.dataset.stage||null); return; }
   if(e.target.id==="savenote"){ setNote(auditById(ui.open), val("note")); return; }
+  if(e.target.id==="sms_send"){ var body=val("sms_body");
+      if(body) sendSms(auditById(ui.open), body); return; }
   if(e.target.id==="em_copy"){ var A=auditById(ui.open);
       copyText(composeEmail({draft_body: val("em_body")}), "Email"); return; }
   if(e.target.id==="em_copysubj"){ copyText(val("em_subj"), "Subject"); return; }
