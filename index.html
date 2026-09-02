@@ -124,7 +124,7 @@ var SESS_KEY = "fb_session";
 
 /* ── state ─────────────────────────────────────────────────────────────── */
 var sess = null, data = { audits:[], contacts:[], bookings:[], settings:{}, messages:[], templates:[] };
-var ui = { tab:"leads", open:null, f:{score:"",ind:"",ep:"",val:"",q:""}, err:"", busy:false };
+var ui = { tab:"leads", seg:"todo", open:null, f:{score:"",ind:"",ep:"",val:"",q:""}, err:"", busy:false };
 var app = document.getElementById("app");
 
 /* ── auth ──────────────────────────────────────────────────────────────── */
@@ -264,7 +264,10 @@ function setStage(a, stage){
           title:a.business.name+" — funnel fix", stage:stage }})
         .then(function(rows){ a.deals=[rows[0]]; });
   }
-  p.then(function(){ toast("saved"); render(); })
+  p.then(function(){
+      toast(stage?("moved to "+stage):"removed from pipeline");
+      render();
+    })
    .catch(function(e){ toast("failed: "+e.message,3200); });
 }
 function addContact(o){
@@ -474,10 +477,23 @@ function vOverview(){
 }
 function vTagStage(s){ return s?'<span class="tag t-form">'+esc(s)+'</span>':'<span style="color:var(--dim);font-size:12px">—</span>'; }
 
+function segOf(a){
+  var st=stageOf(a);
+  if(!st || st==="new") return "todo";
+  if(st==="contacted") return "contacted";
+  if(st==="won"||st==="lost") return "closed";
+  return "booked";
+}
+function segCounts(){
+  var c={todo:0,contacted:0,booked:0,closed:0,all:data.audits.length};
+  data.audits.forEach(function(a){ c[segOf(a)]++; });
+  return c;
+}
 function filtered(){
   var f=ui.f;
   return data.audits.filter(function(a){
     var b=a.business||{};
+    if(ui.seg!=="all" && segOf(a)!==ui.seg) return false;
     if(f.score && String(a.score)!==f.score) return false;
     if(f.ind && b.industry!==f.ind) return false;
     if(f.val && (a.validation||"unchecked")!==f.val) return false;
@@ -496,8 +512,18 @@ function sel(id,ph,opts,cur){
 function vLeads(){
   var inds={}; data.audits.forEach(function(a){ if(a.business&&a.business.industry) inds[a.business.industry]=1; });
   var rows=filtered();
-  var h='<div class="head"><div><h1>Leads</h1><div class="sub">'+rows.length+' of '+data.audits.length+' · click a row for evidence and verify links</div></div>'
+  var C=segCounts();
+  var SEGS=[["todo","To contact",C.todo],["contacted","Contacted",C.contacted],
+            ["booked","Booked",C.booked],["closed","Closed",C.closed],["all","All",C.all]];
+  var label={todo:"leads you have not worked yet",contacted:"reached out, no call booked yet",
+             booked:"call on the calendar",closed:"won or lost",all:"every audited business"}[ui.seg];
+  var h='<div class="head"><div><h1>Leads</h1><div class="sub">'+rows.length+' shown · '+label+'</div></div>'
     +'<button class="btn" id="csv">Export CSV</button></div>';
+  h+='<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px">'
+    + SEGS.map(function(sg){
+        return '<button class="btn sm'+(ui.seg===sg[0]?" pri":"")+'" data-seg="'+sg[0]+'">'
+             + esc(sg[1])+' <span style="opacity:.6">'+sg[2]+'</span></button>'; }).join("")
+    +'</div>';
   h+='<div class="filters">'
     +sel("score","Any score",[["1","1 · hot"],["2","2 · medium"],["3","3 · low"]],ui.f.score)
     +sel("ind","Any vertical",Object.keys(inds).map(function(i){return [i,i];}),ui.f.ind)
@@ -765,6 +791,7 @@ document.addEventListener("click",function(e){
       name: val("eb_name")||null, domain: val("eb_domain")||null,
       phone: val("eb_phone")||null, email: val("eb_email")||null }); return; }
   if(e.target.id==="dellead"){ deleteLead(auditById(ui.open)); return; }
+  var sg=e.target.closest("[data-seg]"); if(sg){ ui.seg=sg.dataset.seg; render(); return; }
   var t=e.target.closest("[data-tab]");   if(t){ ui.tab=t.dataset.tab; ui.open=null; render(); return; }
   var cb=e.target.closest("button[data-close]"); if(cb){ ui.open=null; render(); return; }
   if(e.target.classList && e.target.classList.contains("drawer")){ ui.open=null; render(); return; }
