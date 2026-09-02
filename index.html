@@ -205,7 +205,7 @@ function loadAll(){
   return Promise.all([
     api("audits?select="+encodeURIComponent(SELECT)+"&order=score.asc"),
     api("contacts?select=*&order=created_at.desc"),
-    api("bookings?select=*&order=starts_at.desc"),
+    api("bookings?select=*,business:businesses(id,name,slug)&order=starts_at.desc"),
     api("settings?select=*"),
     api("messages?select=*&order=created_at.asc")
   ]).then(function(r){
@@ -362,6 +362,12 @@ function deleteLead(a){
     })
     .catch(function(e){ toast("delete failed: "+e.message,3600); });
 }
+function setNoShow(b, v){
+  toast("saving…",0);
+  api("bookings?id=eq."+b.id,{method:"PATCH", body:{no_show:v}})
+    .then(function(){ b.no_show=v; toast(v?"marked no-show":"cleared"); render(); })
+    .catch(function(e){ toast("failed: "+e.message,3400); });
+}
 function saveSetting(k,v){
   toast("saving…",0);
   return api("settings",{method:"POST", body:{key:k,value:v}, prefer:"resolution=merge-duplicates,return=representation"})
@@ -425,6 +431,13 @@ function vOverview(){
     +st("No owned page",c.noPage,"messenger, social or none")
     +st("Validation rate",(c.checked?rate+"%":"—"),(c.checked?c.val+" of "+c.checked+" held up":"nothing checked yet"))
     +st("Inbound SMS",unreadCount(),(unreadCount()?"replies from leads":"none yet"))
+    +(function(){
+        var past=data.bookings.filter(function(b){ return b.status!=="cancelled" && b.starts_at && new Date(b.starts_at)<new Date(); });
+        var ns=past.filter(function(b){ return b.no_show; }).length;
+        var pct=past.length?Math.round(100*ns/past.length):null;
+        return st("No-show rate", pct===null?"—":pct+"%",
+                  past.length?(ns+" of "+past.length+" past calls"):"no completed calls yet");
+      })()
     +'</div>';
   h+='<div class="panel" style="margin-bottom:20px"><table><thead><tr><th>Active deals</th><th>Stage</th><th>Score</th></tr></thead><tbody>';
   if(!open.length) h+='<tr><td colspan="3" class="empty">No deals yet — promote a lead from Leads.</td></tr>';
@@ -614,16 +627,23 @@ function vBookings(){
   var h='<div class="head"><div><h1>Bookings</h1><div class="sub">'+data.bookings.length+' logged</div></div>'
     +(cal?'<a class="btn pri" href="'+esc(cal)+'" target="_blank" rel="noopener">Open booking page ↗</a>':"")+'</div>';
   if(!cal) h+='<div class="banner b-info">Add your Cal.com link below. Automatic sync via webhook is the next step now that there is a real database.</div>';
-  h+='<div class="panel" style="margin-bottom:20px"><table><thead><tr><th>Who</th><th>When</th><th>Email</th><th>Status</th><th></th></tr></thead><tbody>';
-  if(!data.bookings.length) h+='<tr><td colspan="5" class="empty">No bookings yet.</td></tr>';
+  h+='<div class="panel" style="margin-bottom:20px"><table><thead><tr><th>Who</th><th>Lead</th><th>When</th><th>Status</th><th></th></tr></thead><tbody>';
+  if(!data.bookings.length) h+='<tr><td colspan="5" class="empty">No bookings yet. Once the Cal.com webhook is connected they land here automatically.</td></tr>';
   data.bookings.forEach(function(b){
-    var g=gcal(b);
-    h+='<tr><td class="bn">'+esc(b.attendee_name||"")+'</td>'
+    var g=gcal(b), past=b.starts_at && new Date(b.starts_at)<new Date();
+    h+='<tr>'
+      +'<td><div class="bn">'+esc(b.attendee_name||"—")+'</div>'
+      +'<div class="bs">'+esc(b.attendee_email||b.attendee_phone||"")+'</div></td>'
+      +'<td>'+(b.business?('<span class="tag t-form">'+esc(b.business.name)+'</span>')
+                        :'<span style="color:var(--dim);font-size:12px">no match</span>')+'</td>'
       +'<td class="mono" style="font-size:12px">'+esc(b.starts_at?new Date(b.starts_at).toLocaleString():"")+'</td>'
-      +'<td class="mono" style="font-size:12px">'+esc(b.attendee_email||"")+'</td>'
-      +'<td>'+esc(b.status)+'</td>'
+      +'<td>'+(b.no_show?'<span class="tag v-disputed">no-show</span>'
+              : b.status==="cancelled"?'<span class="tag v-unchecked">cancelled</span>'
+              : '<span class="tag v-validated">'+esc(b.status)+'</span>')+'</td>'
       +'<td style="text-align:right;white-space:nowrap">'
-      +(g?'<a class="btn sm" href="'+esc(g)+'" target="_blank" rel="noopener">Add to Calendar</a> ':"")
+      +(b.meeting_url?'<a class="btn sm" href="'+esc(b.meeting_url)+'" target="_blank" rel="noopener">Join</a> ':"")
+      +(g?'<a class="btn sm" href="'+esc(g)+'" target="_blank" rel="noopener">Calendar</a> ':"")
+      +(past && b.status!=="cancelled" ? '<button class="btn sm" data-noshow="'+b.id+'|'+(b.no_show?"0":"1")+'">'+(b.no_show?"Clear":"No-show")+'</button> ' : "")
       +'<button class="btn sm" data-delb="'+b.id+'">Remove</button></td></tr>'; });
   h+='</tbody></table></div>';
   h+='<div class="panel" style="padding:18px;margin-bottom:20px"><h3 style="font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-bottom:11px">Log a booking</h3>'
@@ -711,6 +731,10 @@ document.addEventListener("click",function(e){
     addBooking({provider:"manual",attendee_name:w,attendee_email:val("be")||null,
       starts_at: val("bd")?new Date(val("bd")).toISOString():null,
       meeting_url: val("bm")||null, status:"active"}); return; }
+  var ns=e.target.closest("[data-noshow]");
+  if(ns){ var q=ns.dataset.noshow.split("|");
+    var bk=data.bookings.filter(function(x){return x.id===q[0];})[0];
+    if(bk) setNoShow(bk, q[1]==="1"); return; }
   var db=e.target.closest("[data-delb]"); if(db){ delRow("bookings",db.dataset.delb,data.bookings); return; }
   if(e.target.id==="savecal"){
       var sg=val("sig");
