@@ -334,10 +334,10 @@ function sendSms(a, body){
     })
     .catch(function(e){ toast("send failed: "+e.message,4000); });
 }
-function sendEmail(a, subject, body){
+function sendEmail(a, to, subject, body){
   var b=a.business||{};
-  var to=b.email;
-  if(!to){ toast("no email on file",2600); return; }
+  to=(to||b.email||"").trim();
+  if(!to){ toast("no address to send to",2600); return; }
   if(!body || !body.trim()){ toast("body is empty",2600); return; }
   if(!confirm("Send to "+to+"?\n\nSubject: "+(subject||"(none)"))) return;
   toast("sending…",0);
@@ -591,20 +591,24 @@ function vDrawer(){
   h+='</div>';
   if(b.contact_source) h+='<div class="mono" style="font-size:10.5px;color:var(--dim);margin-top:9px">source: '+esc(b.contact_source)+'</div>';
   h+='</div></div>';
-  h+='<div class="sec"><h3>Quick send</h3>'
+  h+='<div class="sec"><h3>Email</h3>'
     +'<div class="form" style="max-width:none">'
     +'<select id="qs_tpl"><option value="">Choose a template…</option>'
     + data.templates.map(function(t,i){ return '<option value="'+i+'">'+esc(t.name)+'</option>'; }).join("")
     + '<option value="draft">— the cold-outreach draft for this lead —</option></select>'
-    +'<input id="qs_subj" placeholder="Subject">'
-    +'<textarea class="note" id="qs_body" style="min-height:150px" placeholder="Pick a template above, or write it here."></textarea>'
-    +'<input id="qs_to" placeholder="Send to…" value="'+esc(b.email||"")+'">'
+    +'<label>Subject</label><input id="qs_subj" value="'+esc(a.draft_subject||"")+'">'
+    +'<label>Body <span style="color:var(--dim)">— signature and booking link are appended automatically</span></label>'
+    +'<textarea class="note" id="qs_body" style="min-height:200px" placeholder="Pick a template above, or write it here.">'+esc(a.draft_body||"")+'</textarea>'
+    +'<label>Send to</label><input id="qs_to" value="'+esc(b.email||"")+'" placeholder="name@business.com">'
+    +'<div class="mono" style="font-size:11px;color:var(--dim);white-space:pre-wrap;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px">'+esc(sigBlock()||"(no signature set — add one under Bookings)")+'</div>'
     +'<div style="display:flex;gap:7px;flex-wrap:wrap">'
-    +'<button class="btn sm pri" id="qs_open">Open in email</button>'
+    +(b.email?'<button class="btn sm pri" id="qs_send">Send email</button>':'<span class="btn sm" style="opacity:.55;cursor:default">No email on file</span>')
+    +'<button class="btn sm" id="qs_save">Save draft</button>'
     +'<button class="btn sm" id="qs_copy">Copy</button>'
+    +'<button class="btn sm" id="qs_open">Open in mail app</button>'
     +'<button class="btn sm" id="qs_log">Log as sent</button>'
     +'</div>'
-    +'<div style="font-size:11.5px;color:var(--dim)">Signature and booking link are appended automatically.</div>'
+    +'<div style="font-size:11.5px;color:var(--dim)">Sends as '+esc(data.settings.gmail_sender||"your Workspace account")+' — lands in your Sent folder, so replies thread normally. “Log as sent” is only for mail you sent by hand elsewhere.</div>'
     +'</div></div>';
   h+='<div class="sec"><h3>Score &amp; rationale</h3><div style="display:flex;gap:10px;align-items:flex-start">'
     +'<span class="sc sc'+a.score+'" style="flex:none">'+a.score+'</span>'
@@ -639,21 +643,6 @@ function vDrawer(){
       +'</div></div>';
   }
   h+='</div>';
-  h+='<div class="sec"><h3>Draft email</h3>'
-    +'<div class="form" style="max-width:none">'
-    +'<label>Subject</label><input id="em_subj" value="'+esc(a.draft_subject||"")+'">'
-    +'<label>Body <span style="color:var(--dim)">— signature and booking link are appended automatically</span></label>'
-    +'<textarea class="note" id="em_body" style="min-height:210px">'+esc(a.draft_body||"")+'</textarea>'
-    +'<div class="mono" style="font-size:11px;color:var(--dim);white-space:pre-wrap;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px">'+esc(sigBlock()||"(no signature set — add one under Bookings)")+'</div>'
-    +'<div style="display:flex;gap:7px;flex-wrap:wrap">'
-    +(b.email?'<button class="btn sm pri" id="em_send">Send email</button>':'<span class="btn sm" style="opacity:.55;cursor:default">No email on file</span>')
-    +'<button class="btn sm" id="em_save">Save draft</button>'
-    +'<button class="btn sm" id="em_copy">Copy body</button>'
-    +'<button class="btn sm" id="em_copysubj">Copy subject</button>'
-    +(b.email?'<a class="btn sm" id="em_open" href="#">Open in mail app</a>':'')
-    +'</div>'
-    +(b.email?'<div style="font-size:11.5px;color:var(--dim)">Sends from '+esc(data.settings.gmail_sender||"your Workspace account")+' via Gmail — lands in your Sent folder, replies thread normally.</div>':'')
-    +'</div></div>';
   h+='<div class="sec"><h3>Funnel path</h3><div class="mono" style="font-size:12px;color:var(--body);line-height:1.6;word-break:break-word">'+esc(a.funnel_path||"—")+'</div></div>';
   h+='<div class="sec"><h3>Issues found ('+(a.issues||[]).length+')</h3>';
   (a.issues||[]).forEach(function(i){
@@ -804,18 +793,10 @@ document.addEventListener("click",function(e){
       return; }
   if(e.target.id==="sms_send"){ var body=val("sms_body");
       if(body) sendSms(auditById(ui.open), body); return; }
-  if(e.target.id==="em_send"){ sendEmail(auditById(ui.open), val("em_subj"), val("em_body")); return; }
-  if(e.target.id==="em_copy"){ var A=auditById(ui.open);
-      copyText(composeEmail({draft_body: val("em_body")}), "Email"); return; }
-  if(e.target.id==="em_copysubj"){ copyText(val("em_subj"), "Subject"); return; }
-  if(e.target.id==="em_save"){ saveDraft(auditById(ui.open), val("em_subj"), val("em_body")); return; }
-  if(e.target.id==="em_open"){ e.preventDefault();
-      var A2=auditById(ui.open);
-      var to=(A2.business&&A2.business.email)||"";
-      window.location.href="mailto:"+encodeURIComponent(to)
-        +"?subject="+encodeURIComponent(val("em_subj"))
-        +"&body="+encodeURIComponent(composeEmail({draft_body: val("em_body")}));
-      return; }
+  if(e.target.id==="qs_send"){
+      sendEmail(auditById(ui.open), val("qs_to"), val("qs_subj"), val("qs_body")); return; }
+  if(e.target.id==="qs_save"){
+      saveDraft(auditById(ui.open), val("qs_subj"), val("qs_body")); return; }
   if(e.target.id==="savebiz"){ saveBusiness(auditById(ui.open), {
       name: val("eb_name")||null, domain: val("eb_domain")||null,
       phone: val("eb_phone")||null, email: val("eb_email")||null }); return; }
