@@ -349,7 +349,14 @@ function sendEmail(a, to, subject, body){
                            business_id: b.id })
   }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); })
     .then(function(x){
-      if(!x.ok){ toast(x.j.error||"send failed",5200); return; }
+      if(!x.ok){
+        // The function returns the specific cause; showing only the
+        // headline turned a nameable error into "it just failed".
+        var msg=x.j.error||"send failed";
+        if(x.j.google_error) msg+=" ("+x.j.google_error+")";
+        if(x.j.likely_cause && x.j.likely_cause.indexOf("unrecog")<0) msg+=" — "+x.j.likely_cause;
+        console.error("gmail-send failed:", x.j);
+        toast(msg,9000); return; }
       if(x.j.logged===false) toast("sent — but logging failed, check the thread",5200);
       else toast("sent");
       // Sending is contact. Advance a lead that hasn't been moved yet, but
