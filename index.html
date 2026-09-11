@@ -367,17 +367,24 @@ function sendEmail(a, to, subject, body){
     .catch(function(e){ toast("send failed: "+e.message,5200); });
 }
 function sigBlock(){
-  var sig=(data.settings.email_sig||"").trim();
+  return (data.settings.email_sig||"").trim();
+}
+function appendedBlock(body){
+  // What composeEmail adds after the body: the cal link as its own visible,
+  // clickable paragraph, then the signature below it — not buried inside the
+  // sign-off. Skipped if the body already names the link (a Quick-send
+  // template can inline {{cal_link}} itself), so it's never shown twice.
   var cal=(data.settings.cal_link||"").trim();
-  var out=[];
-  if(sig) out.push(sig);
-  if(cal) out.push("Grab a time here: "+cal);
-  return out.join("\n");
+  var sig=sigBlock();
+  var parts=[];
+  if(cal && (body||"").indexOf(cal)<0) parts.push("Grab a time here: "+cal);
+  if(sig) parts.push(sig);
+  return parts.join("\n\n");
 }
 function composeEmail(a){
   var body=(a.draft_body||"").trim();
-  var sig=sigBlock();
-  return body + (sig?("\n\n"+sig):"");
+  var extra=appendedBlock(body);
+  return body + (extra?("\n\n"+extra):"");
 }
 function saveDraft(a, subj, body){
   toast("saving…",0);
@@ -607,7 +614,7 @@ function vDrawer(){
     +'<label>Body <span style="color:var(--dim)">— signature and booking link are appended automatically</span></label>'
     +'<textarea class="note" id="qs_body" style="min-height:200px" placeholder="Pick a template above, or write it here.">'+esc(a.draft_body||"")+'</textarea>'
     +'<label>Send to</label><input id="qs_to" value="'+esc(b.email||"")+'" placeholder="name@business.com">'
-    +'<div class="mono" style="font-size:11px;color:var(--dim);white-space:pre-wrap;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px">'+esc(sigBlock()||"(no signature set — add one under Bookings)")+'</div>'
+    +'<div class="mono" style="font-size:11px;color:var(--dim);white-space:pre-wrap;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px">'+esc(appendedBlock(a.draft_body||"")||"(no signature set — add one under Bookings)")+'</div>'
     +'<div style="display:flex;gap:7px;flex-wrap:wrap">'
     +(b.email?'<button class="btn sm pri" id="qs_send">Send email</button>':'<span class="btn sm" style="opacity:.55;cursor:default">No email on file</span>')
     +'<button class="btn sm" id="qs_save">Save draft</button>'
@@ -741,7 +748,7 @@ function vBookings(){
   h+='<div class="panel" style="padding:18px"><h3 style="font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-bottom:11px">Booking link &amp; email signature</h3>'
     +'<div class="form" style="max-width:520px"><label>Cal.com booking link</label>'
     +'<input id="cal" placeholder="https://cal.com/your-name/15min" value="'+esc(cal)+'">'
-    +'<label>Email signature — appended to every draft</label>'
+    +'<label>Email signature — appended below the booking link on every draft</label>'
     +'<textarea class="note" id="sig" style="min-height:90px">'+esc(data.settings.email_sig||"")+'</textarea>'
     +'<button class="btn pri" id="savecal">Save</button></div>'
     +'<div style="font-size:12px;color:var(--muted);margin-top:12px;line-height:1.6">Changing either updates every draft email at once — the signature is stored separately from the 18 bodies.</div></div>';
@@ -789,9 +796,9 @@ document.addEventListener("click",function(e){
   var v=e.target.closest("[data-val]");   if(v){ setValidation(auditById(ui.open), v.dataset.val); return; }
   var s=e.target.closest("[data-stage]"); if(s){ setStage(auditById(ui.open), s.dataset.stage||null); return; }
   if(e.target.id==="savenote"){ setNote(auditById(ui.open), val("note")); return; }
-  if(e.target.id==="qs_open"){ var A=auditById(ui.open);
-      openMail(val("qs_to"), val("qs_subj"), val("qs_body")+"\n\n"+sigBlock()); return; }
-  if(e.target.id==="qs_copy"){ copyText(val("qs_body")+"\n\n"+sigBlock(), "Email"); return; }
+  if(e.target.id==="qs_open"){
+      openMail(val("qs_to"), val("qs_subj"), composeEmail({draft_body: val("qs_body")})); return; }
+  if(e.target.id==="qs_copy"){ copyText(composeEmail({draft_body: val("qs_body")}), "Email"); return; }
   if(e.target.id==="qs_log"){ var A2=auditById(ui.open);
       api("activities",{method:"POST", body:{ business_id:A2.business.id, kind:"email_sent",
         actor:"hassan", body:"Sent: "+(val("qs_subj")||"(no subject)")+" -> "+(val("qs_to")||"?") }})
