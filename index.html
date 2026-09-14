@@ -373,15 +373,25 @@ function sendEmail(a, to, subject, body){
 function sigBlock(){
   return (data.settings.email_sig||"").trim();
 }
+function calSlug(){
+  // Host+path only, no scheme or query string, so "https://cal.com/x/15min
+  // ?overlayCalendar=true" and a signature line reading plain "cal.com/x/15min"
+  // are recognized as the same link regardless of exact formatting.
+  var cal=(data.settings.cal_link||"").trim();
+  return cal ? cal.replace(/^https?:\/\//,"").replace(/[?#].*$/,"").replace(/\/$/,"") : "";
+}
 function appendedBlock(body){
   // What composeEmail adds after the body: the cal link as its own visible,
   // clickable paragraph, then the signature below it — not buried inside the
-  // sign-off. Skipped if the body already names the link (a Quick-send
-  // template can inline {{cal_link}} itself), so it's never shown twice.
+  // sign-off. Skipped if the body OR the signature already names the link (a
+  // Quick-send template can inline {{cal_link}}, and the signature itself may
+  // carry a "Book a call" line), so it's never shown twice.
   var cal=(data.settings.cal_link||"").trim();
   var sig=sigBlock();
+  var slug=calSlug();
+  var already=slug && ((body||"").indexOf(slug)>=0 || sig.indexOf(slug)>=0);
   var parts=[];
-  if(cal && (body||"").indexOf(cal)<0) parts.push("Grab a time here: "+cal);
+  if(cal && !already) parts.push("Grab a time here: "+cal);
   if(sig) parts.push(sig);
   return parts.join("\n\n");
 }
