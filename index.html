@@ -264,7 +264,7 @@ function setStage(a, stage){
           title:a.business.name+" — funnel fix", stage:stage }})
         .then(function(rows){ a.deals=[rows[0]]; });
   }
-  p.then(function(){
+  return p.then(function(){
       toast(stage?("moved to "+stage):"removed from pipeline");
       render();
     })
@@ -360,9 +360,13 @@ function sendEmail(a, to, subject, body){
       if(x.j.logged===false) toast("sent — but logging failed, check the thread",5200);
       else toast("sent");
       // Sending is contact. Advance a lead that hasn't been moved yet, but
-      // never walk a further-along deal (booked/won) backwards.
-      if(!stageOf(a)) setStage(a, "contacted");
-      return loadAll().then(render);
+      // never walk a further-along deal (booked/won) backwards. Await the
+      // stage write BEFORE reloading: firing both at once let the reload's
+      // GET occasionally land before the deal write had committed, which
+      // silently reverted the lead back to "New" until the next refresh.
+      // Awaiting first guarantees the reload always sees the new stage.
+      var moved = stageOf(a) ? Promise.resolve() : setStage(a, "contacted");
+      return moved.then(function(){ return loadAll().then(render); });
     })
     .catch(function(e){ toast("send failed: "+e.message,5200); });
 }
