@@ -192,7 +192,7 @@ function api(path, opts){
 
 var SELECT = "id,score,score_rationale,funnel_path,endpoint_type,validation,validation_note,"+
   "call_opener,corrected_note,batch_label,discovery_query,draft_subject,draft_body,"+
-  "business:businesses(id,slug,name,domain,industry,region,fb_page_url,phone,email,contact_source),"+
+  "business:businesses(id,slug,name,domain,industry,region,fb_page_url,phone,email,contact_source,owner_name),"+
   "ad:ads(ad_library_id,permalink,running_since,ads_running,endpoint_type,destination_url),"+
   "issues(id,description,evidence,evidence_class,sort_order),"+
   "suggested_fixes(id,fix,sort_order),"+
@@ -289,10 +289,30 @@ function addBooking(o){
     data.bookings.unshift(rows[0]); toast("logged"); render();
   }).catch(function(e){ toast("failed: "+e.message,3200); });
 }
+// Phrases that only ever belong in an internal audit record. If one reaches a
+// composed email, a client-facing field is being fed from internal notes —
+// which is what put "validated by hand on ABA Heating" (another prospect's
+// name) into 18 drafts. Checked before every send; see checkInternalLeak().
+var INTERNAL_MARKERS = [
+  "validated by hand", "not a broken funnel", "false positive", "false score",
+  "our own audit", "evidence class", "positive control", "untested",
+  "this happened during", "caught 2026", "per hassan"
+];
+function checkInternalLeak(text){
+  var low=String(text||"").toLowerCase();
+  return INTERNAL_MARKERS.filter(function(m){ return low.indexOf(m)>=0; });
+}
 function fillTpl(txt, a){
   var b=a.business||{};
-  var first=(b.name||"").split(/[\s,&]+/)[0]||"there";
-  var finding=(a.issues&&a.issues.length)?a.issues[0].description:(a.score_rationale||"");
+  // Greet a person, never the company's first word. Splitting the business
+  // name turned "Great Western Pest Control" into "Hi Great,". owner_name is
+  // the only field that actually holds a human name, and it's null unless
+  // enrichment inferred one — in which case a neutral greeting is correct.
+  var first=(b.owner_name||"").trim().split(/\s+/)[0]||"there";
+  // call_opener is written as client-facing prose. issues[0].description is an
+  // internal audit record carrying evidence provenance and cross-references to
+  // other businesses — it must never be templated into an email.
+  var finding=(a.call_opener||a.score_rationale||"").trim();
   return String(txt||"")
     .replace(/\{\{first_name\}\}/g, first)
     .replace(/\{\{business\}\}/g, b.name||"")
@@ -339,6 +359,17 @@ function sendEmail(a, to, subject, body){
   to=(to||b.email||"").trim();
   if(!to){ toast("no address to send to",2600); return; }
   if(!body || !body.trim()){ toast("body is empty",2600); return; }
+  // Last line of defence against internal audit notes reaching a prospect.
+  // A template pulling from issues[0].description once sent another prospect's
+  // name ("validated by hand on ABA Heating") to 18 leads. Blocking rather
+  // than warning: there is no good reason to send one of these knowingly.
+  var leaked=checkInternalLeak(subject+"\n"+body);
+  if(leaked.length){
+    console.error("internal-note leak blocked:", leaked);
+    toast("Send blocked — this draft contains internal audit wording: “"
+          +leaked[0]+"”. Rewrite it before sending.",9000);
+    return;
+  }
   if(!confirm("Send to "+to+"?\n\nSubject: "+(subject||"(none)"))) return;
   toast("sending…",0);
   fetch(SB+"/functions/v1/gmail-send",{ method:"POST",
