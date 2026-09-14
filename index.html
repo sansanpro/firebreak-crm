@@ -366,7 +366,17 @@ function sendEmail(a, to, subject, body){
       // silently reverted the lead back to "New" until the next refresh.
       // Awaiting first guarantees the reload always sees the new stage.
       var moved = stageOf(a) ? Promise.resolve() : setStage(a, "contacted");
-      return moved.then(function(){ return loadAll().then(render); });
+      // The address was typed into "Send to" for a lead that had none on
+      // record. Keep it now that Gmail has accepted it — otherwise it has to
+      // be entered twice, once to send and again under Edit business, and the
+      // reload below would wipe it off the form. Only fills an empty field;
+      // an address already on the record is never overwritten from here.
+      var learned = (!b.email && b.id)
+        ? api("businesses?id=eq."+b.id,{method:"PATCH", body:{email:to}})
+            .then(function(){ b.email=to; })
+            .catch(function(er){ toast("sent, but saving the address failed: "+er.message,5200); })
+        : Promise.resolve();
+      return Promise.all([moved, learned]).then(function(){ return loadAll().then(render); });
     })
     .catch(function(e){ toast("send failed: "+e.message,5200); });
 }
@@ -630,13 +640,15 @@ function vDrawer(){
     +'<label>Send to</label><input id="qs_to" value="'+esc(b.email||"")+'" placeholder="name@business.com">'
     +'<div class="mono" style="font-size:11px;color:var(--dim);white-space:pre-wrap;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px">'+esc(appendedBlock(a.draft_body||"")||"(no signature set — add one under Bookings)")+'</div>'
     +'<div style="display:flex;gap:7px;flex-wrap:wrap">'
-    +(b.email?'<button class="btn sm pri" id="qs_send">Send email</button>':'<span class="btn sm" style="opacity:.55;cursor:default">No email on file</span>')
+    +'<button class="btn sm pri" id="qs_send">Send email</button>'
     +'<button class="btn sm" id="qs_save">Save draft</button>'
     +'<button class="btn sm" id="qs_copy">Copy</button>'
     +'<button class="btn sm" id="qs_open">Open in mail app</button>'
     +'<button class="btn sm" id="qs_log">Log as sent</button>'
     +'</div>'
-    +'<div style="font-size:11.5px;color:var(--dim)">Sends as '+esc(data.settings.gmail_sender||"your Workspace account")+' — lands in your Sent folder, so replies thread normally. “Log as sent” is only for mail you sent by hand elsewhere.</div>'
+    +'<div style="font-size:11.5px;color:var(--dim)">'
+    +(b.email?'':'<b>No address on file</b> — type one into “Send to” and it will be saved to this lead once the send succeeds.<br>')
+    +'Sends as '+esc(data.settings.gmail_sender||"your Workspace account")+' — lands in your Sent folder, so replies thread normally. “Log as sent” is only for mail you sent by hand elsewhere.</div>'
     +'</div></div>';
   h+='<div class="sec"><h3>Score &amp; rationale</h3><div style="display:flex;gap:10px;align-items:flex-start">'
     +'<span class="sc sc'+a.score+'" style="flex:none">'+a.score+'</span>'
