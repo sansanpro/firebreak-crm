@@ -192,7 +192,7 @@ function api(path, opts){
 
 var SELECT = "id,score,score_rationale,funnel_path,endpoint_type,validation,validation_note,"+
   "call_opener,corrected_note,batch_label,discovery_query,draft_subject,draft_body,"+
-  "business:businesses(id,slug,name,domain,industry,region,fb_page_url,phone,email,contact_source,owner_name),"+
+  "business:businesses!inner(id,slug,name,domain,industry,region,fb_page_url,phone,email,contact_source,owner_name),"+
   "ad:ads(ad_library_id,permalink,running_since,ads_running,endpoint_type,destination_url),"+
   "issues(id,description,evidence,evidence_class,sort_order),"+
   "suggested_fixes(id,fix,sort_order),"+
@@ -203,7 +203,14 @@ var SELECT = "id,score,score_rationale,funnel_path,endpoint_type,validation,vali
 function loadAll(){
   ui.busy = true;
   return Promise.all([
-    api("audits?select="+encodeURIComponent(SELECT)+"&order=score.asc"),
+    api("audits?select="+encodeURIComponent(SELECT)
+      /* Disqualified businesses stay out of the pipeline view. Without
+         this, 33 leads removed as out-of-region or non-ICP were still
+         rendering in To Contact. !inner on the embedded business makes
+         the filter drop the audit row rather than just null the
+         business. disqualified is NOT NULL default false, so is.false
+         is safe. */
+      +"&business.disqualified=is.false&order=score.asc"),
     api("contacts?select=*&order=created_at.desc"),
     api("bookings?select=*,business:businesses(id,name,slug)&order=starts_at.desc"),
     api("settings?select=*"),
