@@ -124,7 +124,7 @@ var SESS_KEY = "fb_session";
 
 /* ── state ─────────────────────────────────────────────────────────────── */
 var sess = null, data = { audits:[], contacts:[], bookings:[], settings:{}, messages:[], templates:[] };
-var ui = { tab:"leads", seg:"todo", open:null, f:{score:"",ind:"",ep:"",val:"",q:""}, err:"", busy:false };
+var ui = { tab:"leads", seg:"todo", open:null, f:{score:"",ind:"",ep:"",val:"",contact:"",q:""}, err:"", busy:false };
 var app = document.getElementById("app");
 
 /* ── auth ──────────────────────────────────────────────────────────────── */
@@ -523,7 +523,10 @@ function gcal(b){
 function csv(){
   var head=["business","score","vertical","region","endpoint","domain","phone","email","contact_source","ads_since","validation","stage","ad_permalink","call_opener","draft_subject","draft_body","rationale"];
   var rows=[head];
-  data.audits.forEach(function(a){
+  /* filtered(), not data.audits: the export is for acting on what you are
+     looking at. A phone-filtered call list that exports every lead in the
+     database is worse than no export at all. */
+  filtered().forEach(function(a){
     var b=a.business||{}, ad=a.ad||{};
     rows.push([b.name,a.score,b.industry,b.region,a.endpoint_type,b.domain,b.phone,b.email,
                b.contact_source,ad.running_since,a.validation,stageOf(a)||"",ad.permalink||"",
@@ -600,6 +603,15 @@ function filtered(){
     if(f.val && (a.validation||"unchecked")!==f.val) return false;
     if(f.ep==="none" && ["nowhere","messenger","social_profile"].indexOf(a.endpoint_type)<0) return false;
     if(f.ep==="page" && ["form","booking"].indexOf(a.endpoint_type)<0) return false;
+    if(f.contact){
+      var hasP=!!(b.phone&&String(b.phone).trim()), hasE=!!(b.email&&String(b.email).trim());
+      if(f.contact==="phone"   && !hasP) return false;
+      if(f.contact==="nophone" &&  hasP) return false;
+      if(f.contact==="email"   && !hasE) return false;
+      if(f.contact==="noemail" &&  hasE) return false;
+      if(f.contact==="any"     && !hasP && !hasE) return false;
+      if(f.contact==="none"    && (hasP||hasE)) return false;
+    }
     if(f.q){ var q=f.q.toLowerCase();
       if(((b.name||"")+" "+(b.domain||"")+" "+(b.industry||"")+" "+(a.funnel_path||"")).toLowerCase().indexOf(q)<0) return false; }
     return true;
@@ -630,6 +642,9 @@ function vLeads(){
     +sel("ind","Any vertical",Object.keys(inds).map(function(i){return [i,i];}),ui.f.ind)
     +sel("ep","Any endpoint",[["none","No owned page"],["page","Has a page"]],ui.f.ep)
     +sel("val","Any validation",[["unchecked","Unchecked"],["validated","Validated"],["disputed","Disputed"],["partial","Partial"]],ui.f.val)
+    +sel("contact","Any contact",[["phone","Has phone"],["nophone","No phone"],
+        ["email","Has email"],["noemail","No email"],
+        ["any","Phone or email"],["none","No contact at all"]],ui.f.contact)
     +'<input id="q" placeholder="Search business, domain, path…" value="'+esc(ui.f.q)+'"></div>';
   h+='<div class="panel"><table><thead><tr><th style="width:44px">#</th><th>Business</th><th>Vertical</th><th>Endpoint</th><th>Contact</th><th>Ads since</th><th>Validation</th><th>Stage</th></tr></thead><tbody>';
   if(!rows.length) h+='<tr><td colspan="8" class="empty">Nothing matches these filters.</td></tr>';
